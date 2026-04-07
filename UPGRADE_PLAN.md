@@ -161,12 +161,12 @@ CREATE TABLE results (
 - `.env.example` — Add `CACHE_TTL_DAYS=30`
 
 ### Acceptance Criteria
-- [ ] Second run of same dataset hits cache, cost = $0.00 for cached rows
-- [ ] Cache entries expire after TTL
-- [ ] `--no-cache` bypasses cache entirely
-- [ ] Cache hits logged distinctly from API calls
-- [ ] Thread-safe under concurrent workers
-- [ ] Unit tests for cache key generation, TTL expiry, hit/miss
+- [x] Second run of same dataset hits cache, cost = $0.00 for cached rows
+- [x] Cache entries expire after TTL
+- [x] `--no-cache` bypasses cache entirely
+- [x] Cache hits logged distinctly from API calls
+- [x] Thread-safe under concurrent workers (threading.local per-thread connections)
+- [x] Unit tests for cache key generation, TTL expiry, hit/miss, concurrent writes
 
 ### Risks
 - Business status changes over time. 30-day TTL is conservative — IVMF typically runs datasets months apart, so most cache entries will expire naturally.
@@ -473,7 +473,7 @@ Session 1:   URL Normalization         [30 min]  — Foundation for Sessions 2 &
     ↓
 Session 1.5: Pre-existing Bug Fixes   [1 hr]    — Data integrity before adding cache
     ↓
-Session 2:   Result Cache (SQLite)    [2-3 hrs] — Uses normalized URLs for better key matching
+Session 2:   Result Cache (SQLite)    [2-3 hrs] — Uses normalized URLs for better key matching  ✅ DONE
     ↓
 Session 3:   Firecrawl Scraper        [2 hrs]   — Uses normalized URLs, benefits from cache
     ↓

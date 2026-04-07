@@ -53,6 +53,7 @@ def check_business(
     city: str,
     state: str,
     max_retries: int = MAX_RETRIES,
+    cache=None,
 ) -> dict:
     """
     Research a business and return its operational status.
@@ -62,9 +63,22 @@ def check_business(
         confidence — integer 0–100
         evidence   — one-sentence summary citing source(s)
         citations  — list of URLs Perplexity found (may be empty)
+        cost_usd   — 0.0 for cache hits, API cost otherwise
         error      — set to an error message if the call failed, else None
+        _cached    — True if result came from cache (key present only on hits)
+
+    Args:
+        cache: Optional ResultCache instance. When provided, checks for a
+               cached result before calling the API and saves successful
+               results after the call.
     """
     website      = normalize_url(website)
+
+    # Cache lookup — skip API call if we have a fresh result
+    if cache is not None:
+        cached = cache.get(name, city, state)
+        if cached is not None:
+            return cached
     location     = ", ".join(filter(None, [city, state]))
     website_note = f"Their listed website is: {website}" if website else "No website listed."
 
@@ -299,7 +313,7 @@ Respond with the status, confidence score, and a one-sentence evidence summary n
                 sources = ", ".join(citations[:3])  # cap at 3 URLs
                 evidence = f"{evidence} | Sources: {sources}"
 
-            return {
+            result = {
                 "status":     status,
                 "confidence": str(confidence),  # stored as string — checkpoint.py and callers expect "0"–"100"
                 "evidence":   evidence,
@@ -307,6 +321,11 @@ Respond with the status, confidence score, and a one-sentence evidence summary n
                 "cost_usd":   cost,
                 "error":      None,
             }
+
+            if cache is not None:
+                cache.put(name, city, state, result)
+
+            return result
 
         except (ValidationError, json.JSONDecodeError) as e:
             # Structured output parse failed — return Uncertain, don't retry
