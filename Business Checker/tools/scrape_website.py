@@ -178,8 +178,11 @@ def scrape_website(url: str) -> dict:
     except Exception as e:
         return {"success": False, "is_slop": False, "text": "", "note": str(e)[:120]}
 
-    # Very short pages are almost always parking or placeholder pages
-    if len(text) < 80:
+    # Very short pages are almost always parking or placeholder pages.
+    # 40-char floor: genuine parking pages are typically much shorter (often just
+    # the domain name), while sparse-but-real sites (logo + phone + booking link)
+    # can easily exceed 40 chars. The original 80-char threshold was too aggressive.
+    if len(text) < 40:
         return {
             "success": True, "is_slop": True, "text": "",
             "note": "Page has almost no text content — likely a parking or placeholder page.",
