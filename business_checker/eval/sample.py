@@ -39,6 +39,8 @@ OUTPUT_COLUMNS: list[str] = [
     "row_index",
     "name",
     "website",
+    "city",
+    "state",
     "predicted_status",
     "predicted_confidence",
     "predicted_evidence",
@@ -48,6 +50,54 @@ OUTPUT_COLUMNS: list[str] = [
     "human_justification",
     "reviewed_at",
 ]
+
+
+def _load_city_state_from_xlsx(xlsx_path: Path) -> dict[int, tuple[str, str]]:
+    """Read city + state from the input spreadsheet, keyed by row_index.
+
+    The checkpoint CSV preserves only name/website. Disambiguating
+    similarly-named businesses during labeling requires city/state, so the
+    sampler joins back to the original input on row_index when given.
+
+    Args:
+        xlsx_path: Path to the input .xlsx (e.g. BMOSG_All_Businesses.xlsx).
+
+    Returns:
+        Dict mapping row_index (1-based, matching checkpoint convention)
+        to (city, state) tuples. Missing values are empty strings.
+    """
+    import openpyxl  # local import — keeps eval module load light
+
+    wb = openpyxl.load_workbook(xlsx_path, read_only=True, data_only=True)
+    ws = wb.active
+    rows = list(ws.rows)
+    wb.close()
+
+    headers = [str(c.value or "").strip().lower() for c in rows[0]]
+
+    def find_col(*candidates: str) -> int | None:
+        for cand in candidates:
+            for idx, h in enumerate(headers):
+                if cand in h:
+                    return idx
+        return None
+
+    city_idx = find_col("city", "town", "municipality")
+    state_idx = find_col("state", "province", "region")
+
+    if city_idx is None and state_idx is None:
+        logger.warning("No city/state columns found in %s — output will have empty city/state.", xlsx_path)
+        return {}
+
+    out: dict[int, tuple[str, str]] = {}
+    # row_index in checkpoint is 1-based and skips the header row, so the
+    # first data row in the xlsx (row index 1 in openpyxl) maps to
+    # checkpoint row_index 2.
+    for sheet_idx, row in enumerate(rows[1:], start=2):
+        city = str(row[city_idx].value or "").strip() if city_idx is not None else ""
+        state = str(row[state_idx].value or "").strip() if state_idx is not None else ""
+        out[sheet_idx] = (city, state)
+    return out
 
 
 def _split_evidence(raw: str) -> tuple[str, str]:
@@ -72,6 +122,7 @@ def stratified_sample(
     n_per_status: int | None = 20,
     seed: int = 42,
     out_path: Path | str | None = None,
+    input_xlsx: Path | str | None = None,
 ) -> pd.DataFrame:
     """Stratified sample of a checkpoint CSV by AI_Status.
 
@@ -82,12 +133,16 @@ def stratified_sample(
             None to take every row in each bucket.
         seed: Random seed for reproducibility.
         out_path: If provided, write the sample CSV here.
+        input_xlsx: Optional path to the input .xlsx used to produce the
+            checkpoint. When provided, city + state are joined onto every
+            sampled row for the labeler. When omitted, city/state are
+            emitted as empty strings with a warning.
 
     Returns:
-        DataFrame with columns: row_index, name, website, predicted_status,
-        predicted_confidence (int), predicted_evidence, predicted_citations,
-        predicted_checked_at, human_label (empty), human_justification (empty),
-        reviewed_at (empty).
+        DataFrame with columns: row_index, name, website, city, state,
+        predicted_status, predicted_confidence (int), predicted_evidence,
+        predicted_citations, predicted_checked_at, human_label (empty),
+        human_justification (empty), reviewed_at (empty).
     """
     checkpoint_path = Path(checkpoint_path)
     if not checkpoint_path.exists():
@@ -131,11 +186,26 @@ def stratified_sample(
     evidence_series = ev_and_cit.apply(lambda t: t[0])
     citations_series = ev_and_cit.apply(lambda t: t[1])
 
+    # Join city + state from the input xlsx if provided.
+    if input_xlsx is not None:
+        location_lookup = _load_city_state_from_xlsx(Path(input_xlsx))
+        cities = sample["row_index"].apply(lambda r: location_lookup.get(int(r), ("", ""))[0])
+        states = sample["row_index"].apply(lambda r: location_lookup.get(int(r), ("", ""))[1])
+    else:
+        logger.warning(
+            "No --input-xlsx provided — city/state columns will be empty in the labeling sample. "
+            "Pass --input-xlsx to the original spreadsheet to enable disambiguation by location."
+        )
+        cities = pd.Series([""] * len(sample), index=sample.index)
+        states = pd.Series([""] * len(sample), index=sample.index)
+
     output = pd.DataFrame(
         {
             "row_index": sample["row_index"],
             "name": sample["name"],
             "website": sample["website"],
+            "city": cities,
+            "state": states,
             "predicted_status": sample["AI_Status"],
             "predicted_confidence": sample["AI_Confidence"].astype(int),
             "predicted_evidence": evidence_series,
@@ -176,6 +246,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Output CSV path.  Defaults to eval/datasets/sample_<stem>.csv.",
     )
+    parser.add_argument(
+        "--input-xlsx",
+        type=Path,
+        default=None,
+        help="Path to the original input .xlsx — when provided, city + state are joined onto each sampled row.",
+    )
     return parser
 
 
@@ -193,6 +269,7 @@ def main(argv: list[str] | None = None) -> None:
         n_per_status=n,
         seed=args.seed,
         out_path=out,
+        input_xlsx=args.input_xlsx,
     )
     print(f"Wrote {len(sample_df)} rows → {out}")
     print(sample_df["predicted_status"].value_counts().to_string())
