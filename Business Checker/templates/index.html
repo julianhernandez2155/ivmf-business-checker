@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IVMF Business Checker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:          #070b14;
+      --surface:     #0f1621;
+      --surface-2:   #162030;
+      --border:      #1d2b3a;
+      --border-2:    #243447;
+      --accent:      #00d4aa;
+      --accent-dim:  rgba(0,212,170,0.12);
+      --accent-glow: rgba(0,212,170,0.3);
+      --text:        #e2e8f0;
+      --text-dim:    #64748b;
+      --text-muted:  #2a3a4d;
+      --s-active:    #22c55e;
+      --s-closed:    #ef4444;
+      --s-uncertain: #f59e0b;
+      --s-nopres:    #64748b;
+      --s-error:     #f97316;
+      --font-ui:     'IBM Plex Sans', sans-serif;
+      --font-mono:   'IBM Plex Mono', monospace;
+      --r:  8px;
+      --rs: 4px;
+      --sidebar-w: 276px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    input, select, textarea { -webkit-appearance: none; appearance: none; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse at 18% 0%, rgba(0,212,170,0.055) 0%, transparent 52%),
+        radial-gradient(ellipse at 82% 100%, rgba(0,90,200,0.05) 0%, transparent 52%);
+      color: var(--text);
+      font-family: var(--font-ui);
+      font-size: 14px;
+    }
+
+    /* ── Layout ──────────────────────────────── */
+    #app { display: flex; height: 100vh; overflow: hidden; }
+
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* ── Scrollbars ───────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+
+    /* ── Buttons ──────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 6px; padding: 8px 14px; border-radius: var(--rs); border: none;
+      font-family: var(--font-ui); font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+    .btn-primary { background: var(--accent); color: #070b14; }
+    .btn-primary:hover:not(:disabled) { background: #00e8bb; box-shadow: 0 0 14px var(--accent-glow); }
+    .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border-2); }
+    .btn-ghost:hover:not(:disabled) { background: var(--surface-2); }
+    .btn-danger { background: transparent; color: var(--s-closed); border: 1px solid rgba(239,68,68,0.3); }
+    .btn-danger:hover:not(:disabled) { background: rgba(239,68,68,0.08); border-color: var(--s-closed); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn-block { width: 100%; }
+
+    /* ── Sidebar: header ─────────────────────── */
+    .sb-header {
+      padding: 16px 16px 14px;
+      border-bottom: 1px solid var(--border);
+      border-left: 2px solid var(--accent);
+      flex-shrink: 0;
+    }
+    .sb-header h1 { font-size: 17px; font-weight: 700; line-height: 1.2; letter-spacing: 0.01em; }
+    .sb-header .sub { font-size: 10px; color: var(--text-dim); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .sb-class { font-family: var(--font-mono); font-size: 9px; color: var(--accent); letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 7px; opacity: 0.6; }
+
+    /* ── Sidebar: sections ───────────────────── */
+    .sb-section {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .section-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;
+    }
+
+    /* API key */
+    .key-row { display: flex; gap: 6px; }
+    .key-input {
+      flex: 1; background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--rs); padding: 6px 10px;
+      font-family: var(--font-mono); font-size: 11px; color: var(--text);
+      outline: none; min-width: 0;
+    }
+    .key-input:focus { border-color: var(--accent); }
+    .key-status {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; color: var(--text-dim); margin-top: 6px; min-height: 15px;
+    }
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--text-muted); flex-shrink: 0;
+    }
+    .dot.ok   { background: var(--s-active); }
+    .dot.err  { background: var(--s-closed); }
+    .dot.spin { background: var(--accent); animation: pulse 1s infinite; }
+
+    /* Run name */
+    .run-name {
+      font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 10px;
+    }
+    .run-name.empty { font-family: var(--font-ui); font-style: italic; color: var(--text-dim); }
+
+    /* Progress */
+    .prog-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 5px; }
+    .prog-bar-fill {
+      height: 100%; border-radius: 2px; transition: width 0.4s ease; width: 0%;
+      background: linear-gradient(90deg, var(--accent) 0%, #00e8bb 100%);
+      position: relative; overflow: hidden;
+    }
+    .prog-bar-fill::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.22) 50%, transparent 100%);
+      animation: shimmer 2s ease-in-out infinite;
+    }
+    .prog-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); }
+
+    /* Stat grid */
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 10px 0; }
+    .stat-card {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-left: 2px solid var(--border);
+      border-radius: var(--rs); padding: 7px 9px;
+    }
+    .stat-card .slabel { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 3px; }
+    .stat-card .sval { font-family: var(--font-mono); font-size: 24px; font-weight: 500; line-height: 1; }
+    .stat-card.c-active    { border-left-color: var(--s-active); }
+    .stat-card.c-active    .sval { color: var(--s-active); }
+    .stat-card.c-closed    { border-left-color: var(--s-closed); }
+    .stat-card.c-closed    .sval { color: var(--s-closed); }
+    .stat-card.c-uncertain { border-left-color: var(--s-uncertain); }
+    .stat-card.c-uncertain .sval { color: var(--s-uncertain); }
+
+    /* Meta rows */
+    .meta-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+    .meta-row .mval { font-family: var(--font-mono); color: var(--text); }
+
+    /* Controls */
+    .ctrl-row { display: flex; gap: 6px; margin-bottom: 6px; }
+
+    /* Sidebar footer */
+    .sb-footer {
+      margin-top: auto; padding: 10px 16px;
+      border-top: 1px solid var(--border); flex-shrink: 0;
+    }
+
+    /* ── Main: toolbar ────────────────────────── */
+    #toolbar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 14px; border-bottom: 1px solid var(--border);
+      background: var(--surface); flex-shrink: 0;
+    }
+
+    /* Filter tabs */
+    .tabs { display: flex; gap: 2px; flex: 1; overflow-x: auto; }
+    .tabs::-webkit-scrollbar { height: 0; }
+    .tab {
+      padding: 5px 11px; border-radius: var(--rs); border: none;
+      background: transparent; color: var(--text-dim);
+      font-family: var(--font-ui); font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: all 0.12s; white-space: nowrap;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .tab:hover { background: var(--surface-2); color: var(--text); }
+    .tab.active { background: var(--accent-dim); color: var(--accent); }
+    .tab .cnt {
+      background: var(--border); color: var(--text-dim);
+      font-family: var(--font-mono); font-size: 10px;
+      padding: 1px 5px; border-radius: 10px; min-width: 18px; text-align: center;
+    }
+    .tab.active .cnt { background: var(--accent-dim); color: var(--accent); }
+    /* Status-matched active tab colors */
+    .tab.active[data-filter="Active"]          { color: var(--s-active);    background: rgba(34,197,94,0.1); }
+    .tab.active[data-filter="Active"]          .cnt { color: var(--s-active);    background: rgba(34,197,94,0.15); }
+    .tab.active[data-filter="Likely Closed"]   { color: var(--s-closed);    background: rgba(239,68,68,0.1); }
+    .tab.active[data-filter="Likely Closed"]   .cnt { color: var(--s-closed);    background: rgba(239,68,68,0.15); }
+    .tab.active[data-filter="Uncertain"]       { color: var(--s-uncertain); background: rgba(245,158,11,0.1); }
+    .tab.active[data-filter="Uncertain"]       .cnt { color: var(--s-uncertain); background: rgba(245,158,11,0.15); }
+    .tab.active[data-filter="No Web Presence"] { color: var(--s-nopres);    background: rgba(100,116,139,0.1); }
+    .tab.active[data-filter="No Web Presence"] .cnt { color: var(--s-nopres);    background: rgba(100,116,139,0.15); }
+    .tab.active[data-filter="error"]           { color: var(--s-error);     background: rgba(249,115,22,0.1); }
+    .tab.active[data-filter="error"]           .cnt { color: var(--s-error);     background: rgba(249,115,22,0.15); }
+
+    /* Search */
+    .srch-wrap { position: relative; flex-shrink: 0; }
+    .srch-ico {
+      position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+      color: var(--text-dim); pointer-events: none; font-size: 13px;
+    }
+    #search-input {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--rs); padding: 6px 10px 6px 27px;
+      color: var(--text); font-family: var(--font-ui); font-size: 12px;
+      outline: none; width: 200px; transition: border-color 0.15s;
+    }
+    #search-input:focus { border-color: var(--accent); }
+    #search-input::placeholder { color: var(--text-muted); }
+
+    /* ── Table ────────────────────────────────── */
+    #table-wrap { flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      position: sticky; top: 0; background: var(--surface);
+      border-bottom: 1px solid var(--border); padding: 9px 12px;
+      text-align: left; font-size: 10px; font-weight: 600;
+      color: var(--text-dim); text-transform: uppercase;
+      letter-spacing: 0.07em; z-index: 1; white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); animation: slideIn 0.18s ease; }
+    tbody tr.no-anim { animation: none; }
+    tbody tr:hover { background: var(--surface-2); }
+    tbody td { padding: 8px 12px; font-size: 13px; vertical-align: top; }
+
+    .td-num  { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); width: 48px; }
+    .td-name { font-weight: 500; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .td-loc  { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+    .td-conf { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+    .td-evid { font-size: 12px; color: var(--text-dim); max-width: 340px; line-height: 1.4; }
+
+    /* Badge */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 500; white-space: nowrap;
+    }
+    .badge-dot { width: 5px; height: 5px; border-radius: 50%; }
+    .badge.active     { background: rgba(34,197,94,0.1);   color: var(--s-active);    }
+    .badge.closed     { background: rgba(239,68,68,0.1);   color: var(--s-closed);    }
+    .badge.uncertain  { background: rgba(245,158,11,0.1);  color: var(--s-uncertain); }
+    .badge.nopres     { background: rgba(100,116,139,0.1); color: var(--s-nopres);    }
+    .badge.error      { background: rgba(249,115,22,0.1);  color: var(--s-error);     }
+    .badge.active    .badge-dot { background: var(--s-active);    }
+    .badge.closed    .badge-dot { background: var(--s-closed);    }
+    .badge.uncertain .badge-dot { background: var(--s-uncertain); }
+    .badge.nopres    .badge-dot { background: var(--s-nopres);    }
+    .badge.error     .badge-dot { background: var(--s-error);     }
+
+    /* ── Empty / upload state ─────────────────── */
+    #empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%; gap: 14px;
+      padding: 40px; text-align: center;
+    }
+    .empty-icon { font-size: 36px; opacity: 0.25; }
+    .empty-title { font-size: 15px; font-weight: 500; }
+    .empty-sub { font-size: 13px; color: var(--text-dim); max-width: 280px; line-height: 1.5; }
+
+    #drop-zone {
+      border: 2px dashed var(--border-2); border-radius: var(--r);
+      padding: 28px 36px; cursor: pointer; transition: all 0.15s;
+      max-width: 360px; width: 100%;
+    }
+    #drop-zone:hover, #drop-zone.over { border-color: var(--accent); background: var(--accent-dim); }
+    #drop-zone .dz-icon { font-size: 24px; margin-bottom: 6px; }
+    #drop-zone .dz-label { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+    #drop-zone .dz-sub { font-size: 12px; color: var(--text-dim); }
+
+    /* ── Log ──────────────────────────────────── */
+    #log-section { border-top: 1px solid var(--border); flex-shrink: 0; }
+    #log-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 14px; cursor: pointer; user-select: none;
+    }
+    #log-toggle:hover { background: var(--surface-2); }
+    .log-title { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
+    #log-chevron { font-size: 10px; color: var(--text-dim); }
+    #log-body {
+      height: 120px; overflow-y: auto; padding: 5px 14px 8px;
+      font-family: var(--font-mono); font-size: 11px; line-height: 1.65;
+    }
+    .log-line        { color: var(--text-dim); }
+    .log-line.info   { color: var(--text); }
+    .log-line.success{ color: var(--s-active); }
+    .log-line.warning{ color: var(--s-uncertain); }
+    .log-line.error  { color: var(--s-closed); }
+    .log-line.dim    { color: var(--text-muted); }
+
+    /* ── Modals ───────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(7,11,20,0.82);
+      backdrop-filter: blur(4px); display: flex; align-items: center;
+      justify-content: center; z-index: 100;
+      opacity: 0; pointer-events: none; transition: opacity 0.18s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border-2);
+      border-radius: var(--r); width: 90%; max-height: 85vh;
+      overflow-y: auto; transform: translateY(6px); transition: transform 0.18s;
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 15px 20px; border-bottom: 1px solid var(--border);
+    }
+    .modal-title { font-size: 15px; font-weight: 600; }
+    .modal-close { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 18px; line-height: 1; }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 18px 20px; }
+    .modal-foot {
+      display: flex; justify-content: flex-end; gap: 8px;
+      padding: 14px 20px; border-top: 1px solid var(--border);
+    }
+    #modal-runs    .modal { max-width: 540px; }
+    #modal-colmap  .modal { max-width: 480px; }
+    #modal-summary .modal { max-width: 460px; }
+
+    /* Run list */
+    .run-list { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; }
+    .run-item {
+      display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--rs); cursor: pointer; transition: border-color 0.12s;
+    }
+    .run-item:hover { border-color: var(--accent); }
+    .run-item.sel   { border-color: var(--accent); background: var(--accent-dim); }
+    .run-item-info { flex: 1; min-width: 0; }
+    .run-item-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .run-item-sub  { font-size: 11px; color: var(--text-dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .run-item-meta { font-size: 11px; color: var(--text-dim); white-space: nowrap; text-align: right; }
+    .run-item-del  { display: none; background: none; border: none; color: var(--s-closed); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; line-height: 1; }
+    .run-item-del:hover { background: rgba(239,68,68,0.12); }
+    .run-list.editing .run-item-del { display: inline-block; }
+    .run-list.editing .run-item { cursor: default; }
+    .run-list.editing .run-item:hover { border-color: var(--border); }
+
+    /* Column mapping */
+    .cm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .cm-field label { display: block; font-size: 10px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 5px; }
+    .cm-field select, .workers-sel {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--rs); padding: 7px 10px; color: var(--text);
+      font-family: var(--font-ui); font-size: 13px; outline: none; cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a9ab8'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center;
+      padding-right: 28px;
+    }
+    .cm-field select:focus, .workers-sel:focus { border-color: var(--accent); }
+    .workers-row {
+      display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--rs);
+    }
+    .workers-row .wr-label { font-size: 12px; color: var(--text-dim); flex: 1; }
+    .workers-row .wr-label strong { color: var(--text); }
+    .workers-sel {
+      width: auto; background: var(--surface); font-family: var(--font-mono);
+    }
+
+    /* Summary */
+    .sum-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 14px; }
+    .sum-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--rs); padding: 12px; text-align: center; }
+    .sum-card .sl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 4px; }
+    .sum-card .sv { font-family: var(--font-mono); font-size: 22px; font-weight: 500; }
+
+    /* ── Toast ────────────────────────────────── */
+    #toast { position: fixed; bottom: 18px; right: 18px; z-index: 200; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+    .toast-item {
+      background: var(--surface); border: 1px solid var(--border-2);
+      border-radius: var(--rs); padding: 9px 14px; font-size: 13px;
+      max-width: 300px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      animation: toastIn 0.2s ease;
+    }
+    .toast-item.success { border-left: 3px solid var(--s-active); }
+    .toast-item.error   { border-left: 3px solid var(--s-closed); }
+    .toast-item.info    { border-left: 3px solid var(--accent); }
+
+    /* ── Animations ───────────────────────────── */
+    @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    @keyframes spin    { to{transform:rotate(360deg)} }
+    @keyframes slideIn { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes toastIn { from{opacity:0;transform:translateX(8px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes shimmer { from{transform:translateX(-100%)} to{transform:translateX(200%)} }
+
+    .spinner { width:14px; height:14px; border:2px solid var(--border-2); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; display:inline-block; }
+
+    /* Confidence bar in table */
+    .conf-wrap { display: inline-flex; align-items: center; gap: 6px; }
+    .conf-bar  { display: inline-block; height: 2px; border-radius: 1px; background: var(--accent); opacity: 0.65; min-width: 2px; flex-shrink: 0; }
+    .conf-val  { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+    .conf-na   { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── Sidebar ──────────────────────────────────────────── -->
+  <aside id="sidebar">
+
+    <div class="sb-header">
+      <div class="sb-class">IVMF &middot; Internal</div>
+      <h1>Business Checker</h1>
+      <div class="sub">VOB Status Intelligence &middot; V2</div>
+    </div>
+
+    <!-- API Key -->
+    <div class="sb-section">
+      <div class="section-label">Perplexity API Key</div>
+      <div class="key-row">
+        <input id="api-key-input" class="key-input" type="password"
+               placeholder="pplx-...">
+        <button class="btn btn-ghost btn-sm" id="btn-test-key">Test</button>
+        <button class="btn btn-ghost btn-sm" id="btn-reset-key" style="display:none;color:var(--s-closed)">Reset</button>
+      </div>
+      <div class="key-status" id="key-status">
+        <span class="dot {{ 'ok' if api_key_loaded else '' }}"></span>
+        <span id="key-msg">{{ 'Key loaded from .env' if api_key_loaded else 'No key loaded' }}</span>
+      </div>
+    </div>
+
+    <!-- Run Info -->
+    <div class="sb-section">
+      <div class="section-label">Current Run</div>
+      <div class="run-name empty" id="run-name-lbl">No run loaded</div>
+      <div class="prog-bar-wrap"><div class="prog-bar-fill" id="prog-bar"></div></div>
+      <div class="prog-labels">
+        <span id="prog-text">0 / 0</span>
+        <span id="prog-pct">—</span>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card c-active">
+          <div class="slabel">Active</div><div class="sval" id="cnt-active">0</div>
+        </div>
+        <div class="stat-card c-closed">
+          <div class="slabel">Closed</div><div class="sval" id="cnt-closed">0</div>
+        </div>
+        <div class="stat-card c-uncertain">
+          <div class="slabel">Uncertain</div><div class="sval" id="cnt-uncertain">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="slabel">No Web</div><div class="sval" id="cnt-nopres">0</div>
+        </div>
+      </div>
+      <div class="meta-row"><span>Cost</span><span class="mval" id="stat-cost">$0.000</span></div>
+      <div class="meta-row"><span>ETA</span><span class="mval" id="stat-eta">—</span></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="sb-section">
+      <button class="btn btn-primary btn-block" id="btn-new-run" style="margin-bottom:6px">
+        + New Run
+      </button>
+      <button class="btn btn-ghost btn-block" id="btn-resume-run" style="margin-bottom:10px">
+        Resume Existing Run
+      </button>
+      <div class="ctrl-row">
+        <button class="btn btn-ghost" id="btn-pause" disabled style="flex:1">Pause</button>
+        <button class="btn btn-danger" id="btn-stop"  disabled style="flex:1">Stop</button>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn btn-ghost btn-block" id="btn-export" disabled>Export Results</button>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn btn-ghost btn-block" id="btn-retry-failed" disabled>Retry Failed Rows</button>
+      </div>
+      <div id="banner-progress-saved" style="display:none;margin-top:12px;padding:10px 12px;background:rgba(0,208,158,0.06);border:1px solid rgba(0,208,158,0.18);border-radius:8px;font-size:11px;color:var(--text-dim);line-height:1.5">
+        Progress is saved automatically after every row. Safe to close this window &mdash; resume your run anytime.
+      </div>
+    </div>
+
+    <div class="sb-footer">
+      <div style="font-size:10px;color:var(--text-muted);text-align:center;line-height:1.6">
+        Tier 0: 1 worker &nbsp;&middot;&nbsp; Tier 1: 3 &nbsp;&middot;&nbsp; Tier 2: 8
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Main ─────────────────────────────────────────────── -->
+  <main id="main">
+
+    <!-- Toolbar -->
+    <div id="toolbar">
+      <div class="tabs" id="filter-tabs">
+        <button class="tab active" data-filter="all">All<span class="cnt" id="tc-all">0</span></button>
+        <button class="tab" data-filter="Active">Active<span class="cnt" id="tc-active">0</span></button>
+        <button class="tab" data-filter="Likely Closed">Closed<span class="cnt" id="tc-closed">0</span></button>
+        <button class="tab" data-filter="Uncertain">Uncertain<span class="cnt" id="tc-uncertain">0</span></button>
+        <button class="tab" data-filter="No Web Presence">No Web<span class="cnt" id="tc-nopres">0</span></button>
+        <button class="tab" data-filter="error">Errors<span class="cnt" id="tc-error">0</span></button>
+      </div>
+      <div class="srch-wrap">
+        <span class="srch-ico">&#9906;</span>
+        <input id="search-input" type="text" placeholder="Search businesses&hellip;">
+      </div>
+    </div>
+
+    <!-- Table / empty state -->
+    <div id="table-wrap">
+      <div id="empty-state">
+        <div class="empty-icon">📋</div>
+        <div class="empty-title">No run loaded</div>
+        <div class="empty-sub">Start a new run by dropping an .xlsx file, or resume an existing one.</div>
+        <div id="drop-zone">
+          <div class="dz-icon">📂</div>
+          <div class="dz-label">Drop .xlsx here</div>
+          <div class="dz-sub">or click to browse</div>
+        </div>
+      </div>
+      <table id="results-table" style="display:none">
+        <thead>
+          <tr>
+            <th class="td-num">#</th>
+            <th>Business Name</th>
+            <th>Location</th>
+            <th>Status</th>
+            <th>Conf.</th>
+            <th>Evidence</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Log -->
+    <div id="log-section">
+      <div id="log-toggle">
+        <span class="log-title">Activity Log</span>
+        <span id="log-chevron">&#9650;</span>
+      </div>
+      <div id="log-body"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Hidden file input (always in DOM) -->
+<input type="file" id="file-input" accept=".xlsx" style="display:none">
+
+<!-- ── Modal: Run Picker ──────────────────────────────────── -->
+<div class="modal-overlay" id="modal-runs">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">Resume a Run</span>
+      <button class="modal-close" onclick="closeModal('modal-runs')">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <div class="run-list" id="run-list">
+        <div style="color:var(--text-dim);font-size:13px">Loading&hellip;</div>
+      </div>
+    </div>
+    <div class="modal-foot" style="justify-content:space-between">
+      <button class="btn btn-ghost btn-sm" id="btn-edit-runs" style="color:var(--text-dim)">Manage Runs</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="closeModal('modal-runs')">Cancel</button>
+        <button class="btn btn-primary" id="btn-confirm-resume" disabled>Resume Selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Column Mapping ──────────────────────────────── -->
+<div class="modal-overlay" id="modal-colmap">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title" id="colmap-title">Configure Run</span>
+      <button class="modal-close" onclick="closeModal('modal-colmap')">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px">
+        Map your spreadsheet columns to the fields the checker needs. Auto-detected where possible.
+      </p>
+      <div class="cm-grid">
+        <div class="cm-field"><label>Business Name *</label><select id="cm-name"></select></div>
+        <div class="cm-field"><label>Website</label><select id="cm-website"></select></div>
+        <div class="cm-field"><label>City</label><select id="cm-city"></select></div>
+        <div class="cm-field"><label>State</label><select id="cm-state"></select></div>
+      </div>
+      <div class="cm-label-row" id="cm-label-row" style="display:none;margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Run Label <span style="font-weight:400;color:var(--text-dim)">(optional)</span></label>
+        <input type="text" id="cm-display-label" placeholder="e.g. Alumni Q1 2026" style="width:100%;padding:6px 10px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:6px;color:var(--text);font-size:13px">
+      </div>
+      <div class="workers-row">
+        <div class="wr-label">
+          <strong>Workers</strong><br>
+          <span style="font-size:11px">Parallel checkers &mdash; match your Perplexity tier</span>
+        </div>
+        <select class="workers-sel" id="cm-workers">
+          <option value="1">1 (Tier 0)</option>
+          <option value="3">3 (Tier 1)</option>
+          <option value="8">8 (Tier 2)</option>
+        </select>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:10px" id="cm-cost-est"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-colmap')">Cancel</button>
+      <button class="btn btn-primary" id="btn-colmap-confirm">Start Run</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Summary ─────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-summary">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">Run Complete</span>
+      <button class="modal-close" onclick="closeModal('modal-summary')">&#215;</button>
+    </div>
+    <div class="modal-body">
+      <div class="sum-grid" id="sum-grid"></div>
+      <div style="font-size:12px;color:var(--text-dim)" id="sum-cost"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-summary')">Close</button>
+      <button class="btn btn-primary" id="btn-export-sum">Export Results</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Exporting ────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-export">
+  <div class="modal" style="max-width:320px;text-align:center">
+    <div class="modal-body" style="padding:36px 28px">
+      <div class="spinner" style="width:26px;height:26px;border-width:3px;margin:0 auto 18px"></div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:6px">Exporting Results</div>
+      <div style="font-size:12px;color:var(--text-dim)">Building your spreadsheet&hellip;</div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+const S = {
+  running:        false,
+  paused:         false,
+  totalRows:      0,
+  completedCount: 0,
+  sessionCost:    0,
+  runName:        null,
+  rows:           [],
+  tabCounts:      { all:0, Active:0, 'Likely Closed':0, Uncertain:0, 'No Web Presence':0, error:0 },
+  activeFilter:   'all',
+  searchQuery:    '',
+  eventSource:    null,
+  // Upload / resume flow
+  uploadId:       null,
+  selectedRun:    null,
+  colmapMode:     'new',   // 'new' | 'resume'
+};
+
+// Counter animation state
+const _aT = { active:0, closed:0, uncertain:0, nopres:0 };
+const _aC = { active:0, closed:0, uncertain:0, nopres:0 };
+let   _aF = null;
+
+// Error keywords (mirrors server)
+const ERR_KW = ['Parse error', 'No text response', 'Error:', 'Failed after'];
+const isErrRow = r =>
+  String(r.confidence) === '0' && ERR_KW.some(kw => (r.evidence || '').includes(kw));
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  setupFileInput();
+  setupDropZone();
+  setupControls();
+  setupFilters();
+  setupSearch();
+  setupLogToggle();
+  await restoreState();
+  connectSSE();
+});
+
+// ── State restore ─────────────────────────────────────────────────────────────
+async function restoreState() {
+  try {
+    const data = await fetch('/api/state').then(r => r.json());
+    if (!data.run_name) return;
+
+    S.running        = data.running;
+    S.paused         = data.paused;
+    S.totalRows      = data.total_rows;
+    S.completedCount = data.completed_count;
+    S.sessionCost    = data.session_cost;
+    S.runName        = data.run_name;
+
+    setRunName(data.run_name);
+    updateProgress(data.completed_count, data.total_rows);
+    updateCost(data.session_cost);
+
+    if (data.session_rows && data.session_rows.length) {
+      showTable();
+      for (const row of data.session_rows) {
+        S.rows.push(row);
+        incrTabCounts(row);
+      }
+      renderTable();
+      refreshTabCounts();
+    }
+
+    if (data.summary) {
+      jumpCounters({
+        active:    data.summary.Active             || 0,
+        closed:    data.summary['Likely Closed']   || 0,
+        uncertain: data.summary.Uncertain          || 0,
+        nopres:    data.summary['No Web Presence'] || 0,
+      });
+    }
+
+    updateCtrlBtns();
+    if (!data.running) enableExport();
+  } catch (e) {
+    console.warn('State restore failed:', e);
+  }
+}
+
+// ── SSE ───────────────────────────────────────────────────────────────────────
+function connectSSE() {
+  if (S.eventSource) { S.eventSource.close(); S.eventSource = null; }
+  const es = new EventSource('/api/stream');
+  S.eventSource = es;
+
+  es.addEventListener('run_started', e => {
+    const d     = JSON.parse(e.data);
+    S.running   = true;
+    S.paused    = false;
+    S.totalRows = d.total_rows;
+    S.runName   = d.run_name;
+    setRunName(d.run_name);
+    updateProgress(d.done_at_start, d.total_rows);
+    updateCtrlBtns();
+    showTable();
+    document.getElementById('banner-progress-saved').style.display = 'block';
+  });
+
+  es.addEventListener('row_result', e => {
+    const row        = JSON.parse(e.data);
+    S.rows.push(row);
+    S.completedCount = row.completed;
+    S.sessionCost    = row.session_cost;
+    incrTabCounts(row);
+    refreshTabCounts();
+    updateProgress(row.completed, row.total);
+    updateCost(row.session_cost);
+    document.getElementById('stat-eta').textContent =
+      row.eta_secs != null ? fmtEta(row.eta_secs) : '—';
+    triggerCounterAnim();
+    if (rowVisible(row)) appendTableRow(row, true);
+  });
+
+  es.addEventListener('log', e => {
+    const d = JSON.parse(e.data);
+    logLine(d.msg, d.level || 'dim');
+  });
+
+  es.addEventListener('run_complete', e => {
+    const d   = JSON.parse(e.data);
+    S.running = false;
+    updateCtrlBtns();
+    enableExport();
+    document.getElementById('stat-eta').textContent = '—';
+    document.getElementById('banner-progress-saved').style.display = 'none';
+    showSummaryModal(d.summary, d.session_cost);
+  });
+
+  es.addEventListener('stopped', () => {
+    S.running = false;
+    S.paused  = false;
+    updateCtrlBtns();
+    document.getElementById('banner-progress-saved').style.display = 'none';
+    enableExport();
+    document.getElementById('stat-eta').textContent    = '—';
+    document.getElementById('btn-pause').textContent   = 'Pause';
+  });
+
+  es.addEventListener('paused',  () => { S.paused = true;  document.getElementById('btn-pause').textContent = 'Resume'; });
+  es.addEventListener('resumed', () => { S.paused = false; document.getElementById('btn-pause').textContent = 'Pause'; });
+
+  es.addEventListener('server_error', e => {
+    toast(JSON.parse(e.data).message, 'error');
+    S.running = false;
+    updateCtrlBtns();
+  });
+
+  es.addEventListener('done', () => { es.close(); S.eventSource = null; });
+
+  es.onerror = () => {
+    setTimeout(() => { if (!S.eventSource) connectSSE(); }, 3000);
+  };
+}
+
+// ── File upload ───────────────────────────────────────────────────────────────
+function setupFileInput() {
+  const fi = document.getElementById('file-input');
+  fi.addEventListener('change', () => {
+    if (fi.files[0]) doUpload(fi.files[0]);
+    fi.value = '';
+  });
+}
+
+function setupDropZone() {
+  const dz = document.getElementById('drop-zone');
+  dz.addEventListener('click', () => document.getElementById('file-input').click());
+  dz.addEventListener('dragover',  e  => { e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('over');
+    if (e.dataTransfer.files[0]) doUpload(e.dataTransfer.files[0]);
+  });
+}
+
+async function doUpload(file) {
+  if (!file.name.endsWith('.xlsx')) { toast('Only .xlsx files are supported.', 'error'); return; }
+  const dz = document.getElementById('drop-zone');
+  dz.innerHTML = '<div class="spinner" style="margin:0 auto 8px"></div><div style="font-size:12px;color:var(--text-dim)">Uploading&hellip;</div>';
+
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const data = await fetch('/api/upload', { method:'POST', body:form }).then(r => r.json());
+    if (data.error) { toast(data.error, 'error'); resetDz(); return; }
+    S.uploadId = data.upload_id;
+    openColMapModal('new', data);
+    resetDz();
+  } catch(e) {
+    toast('Upload failed: ' + e.message, 'error');
+    resetDz();
+  }
+}
+
+function resetDz() {
+  document.getElementById('drop-zone').innerHTML =
+    '<div class="dz-icon">📂</div><div class="dz-label">Drop .xlsx here</div><div class="dz-sub">or click to browse</div>';
+}
+
+// ── Column Mapping Modal ──────────────────────────────────────────────────────
+function openColMapModal(mode, data) {
+  S.colmapMode = mode;
+  const { headers, detected = {}, total_rows, cost_estimate } = data;
+
+  document.getElementById('colmap-title').textContent =
+    mode === 'resume' ? 'Resume Run — Confirm Columns' : 'Configure Run';
+  document.getElementById('btn-colmap-confirm').textContent =
+    mode === 'resume' ? 'Resume Run' : 'Start Run';
+
+  ['name','website','city','state'].forEach(f => {
+    const sel = document.getElementById('cm-' + f);
+    sel.innerHTML = '<option value="">— not mapped —</option>' +
+      headers.map((h, i) =>
+        `<option value="${i}"${detected[f] === i ? ' selected' : ''}>${esc(h || 'Column '+(i+1))}</option>`
+      ).join('');
+  });
+
+  const est = (total_rows * cost_estimate).toFixed(2);
+  document.getElementById('cm-cost-est').textContent =
+    `Estimated cost: ~$${est} for ${total_rows.toLocaleString()} rows`;
+
+  // Show label input only for new runs
+  const labelRow = document.getElementById('cm-label-row');
+  labelRow.style.display = mode === 'new' ? 'block' : 'none';
+  if (mode === 'new') document.getElementById('cm-display-label').value = '';
+
+  openModal('modal-colmap');
+}
+
+document.getElementById('btn-colmap-confirm').addEventListener('click', async () => {
+  // Key is stored server-side — check it's configured before starting
+  const keyStatus = await fetch('/api/key').then(r => r.json());
+  if (!keyStatus.configured) { toast('Set your Perplexity API key first.', 'error'); return; }
+
+  const colMap = {
+    name:    valOrNull(document.getElementById('cm-name').value),
+    website: valOrNull(document.getElementById('cm-website').value),
+    city:    valOrNull(document.getElementById('cm-city').value),
+    state:   valOrNull(document.getElementById('cm-state').value),
+  };
+  if (colMap.name === null) { toast('Map the Business Name column.', 'error'); return; }
+
+  const workers = parseInt(document.getElementById('cm-workers').value);
+  closeModal('modal-colmap');
+  resetRunUI();
+
+  if (!S.eventSource) connectSSE();
+
+  const displayLabel = (document.getElementById('cm-display-label').value || '').trim();
+
+  const endpoint = S.colmapMode === 'new' ? '/api/run/start' : '/api/run/resume';
+  const body     = S.colmapMode === 'new'
+    ? { upload_id: S.uploadId, col_map: colMap, workers, display_label: displayLabel }
+    : { run_name: S.selectedRun, col_map: colMap, workers };
+
+  const d = await fetch(endpoint, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  }).then(r => r.json());
+
+  if (d.error) toast(d.error, 'error');
+});
+
+// ── Run Picker Modal ──────────────────────────────────────────────────────────
+document.getElementById('btn-resume-run').addEventListener('click', async () => {
+  S.selectedRun = null;
+  document.getElementById('btn-confirm-resume').disabled = true;
+
+  const runs = await fetch('/api/runs').then(r => r.json());
+  const list = document.getElementById('run-list');
+  if (!runs.length) {
+    list.innerHTML = '<div style="color:var(--text-dim);font-size:13px">No runs found.</div>';
+  } else {
+    list.innerHTML = '';
+    for (const r of runs) {
+      const pct = r.total ? Math.round((r.done / r.total) * 100) : 0;
+      const el  = document.createElement('div');
+      el.className       = 'run-item';
+      el.dataset.runName = r.name;
+
+      // Left side: label + subtitle
+      const info = document.createElement('div');
+      info.className = 'run-item-info';
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'run-item-name';
+      nameDiv.textContent = r.display_label || r.name;
+      info.appendChild(nameDiv);
+      const subDiv = document.createElement('div');
+      subDiv.className = 'run-item-sub';
+      const datePart = r.started_at
+        ? new Date(r.started_at).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' })
+        : '';
+      subDiv.textContent = r.display_label
+        ? (datePart ? datePart + ' \u00b7 ' + r.name : r.name)
+        : (datePart || '');
+      if (subDiv.textContent) info.appendChild(subDiv);
+
+      // Right side: progress
+      const meta = document.createElement('div');
+      meta.className = 'run-item-meta';
+      meta.textContent = r.done + '/' + r.total + ' (' + pct + '%)';
+      if (r.errors) {
+        const errSpan = document.createElement('div');
+        errSpan.style.cssText = 'color:var(--s-closed);font-size:10px';
+        errSpan.textContent = r.errors + ' error' + (r.errors > 1 ? 's' : '');
+        meta.appendChild(errSpan);
+      }
+
+      // Delete button (visible in edit mode)
+      const delBtn = document.createElement('button');
+      delBtn.className = 'run-item-del';
+      delBtn.textContent = '\u00d7';
+      delBtn.title = 'Delete this run';
+      delBtn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        if (!confirm('Delete "' + (r.display_label || r.name) + '" and all its data?')) return;
+        const res = await fetch('/api/runs/' + encodeURIComponent(r.name), { method: 'DELETE' }).then(x => x.json());
+        if (res.error) { toast(res.error, 'error'); return; }
+        el.remove();
+        if (S.selectedRun === r.name) {
+          S.selectedRun = null;
+          document.getElementById('btn-confirm-resume').disabled = true;
+        }
+        if (!list.querySelector('.run-item')) {
+          list.textContent = 'No runs found.';
+          list.style.cssText = 'color:var(--text-dim);font-size:13px';
+        }
+        toast('Run deleted.', 'success');
+      });
+
+      el.appendChild(info);
+      el.appendChild(meta);
+      el.appendChild(delBtn);
+      el.addEventListener('click', () => {
+        if (list.classList.contains('editing')) return; // no selection in edit mode
+        document.querySelectorAll('.run-item').forEach(x => x.classList.remove('sel'));
+        el.classList.add('sel');
+        S.selectedRun = r.name;
+        document.getElementById('btn-confirm-resume').disabled = false;
+      });
+      list.appendChild(el);
+    }
+  }
+  openModal('modal-runs');
+});
+
+// Edit mode toggle
+document.getElementById('btn-edit-runs').addEventListener('click', () => {
+  const list = document.getElementById('run-list');
+  const btn  = document.getElementById('btn-edit-runs');
+  const editing = list.classList.toggle('editing');
+  btn.textContent = editing ? 'Done' : 'Manage Runs';
+  // Deselect when entering edit mode
+  if (editing) {
+    document.querySelectorAll('.run-item').forEach(x => x.classList.remove('sel'));
+    S.selectedRun = null;
+    document.getElementById('btn-confirm-resume').disabled = true;
+  }
+});
+
+document.getElementById('btn-confirm-resume').addEventListener('click', async () => {
+  if (!S.selectedRun) return;
+  closeModal('modal-runs');
+  const data = await fetch(`/api/runs/${encodeURIComponent(S.selectedRun)}/info`).then(r => r.json());
+  if (data.error) { toast(data.error, 'error'); return; }
+  openColMapModal('resume', data);
+});
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+function setupControls() {
+  document.getElementById('btn-new-run').addEventListener('click', () =>
+    document.getElementById('file-input').click()
+  );
+
+  document.getElementById('btn-pause').addEventListener('click', async () => {
+    const d = await fetch('/api/run/pause', { method:'POST' }).then(r => r.json());
+    if (!d.ok) toast('Could not toggle pause.', 'error');
+  });
+
+  document.getElementById('btn-stop').addEventListener('click', async () => {
+    if (!confirm('Stop the run? Progress is saved and can be resumed.')) return;
+    await fetch('/api/run/stop', { method:'POST' });
+  });
+
+  document.getElementById('btn-export').addEventListener('click', doExport);
+
+  document.getElementById('btn-export-sum').addEventListener('click', () => {
+    closeModal('modal-summary');
+    doExport();
+  });
+
+  document.getElementById('btn-retry-failed').addEventListener('click', async () => {
+    const d = await fetch('/api/run/retry_failed', { method:'POST' }).then(r => r.json());
+    if (d.ok) toast(`${d.removed} error rows cleared — resume to re-check.`, 'info');
+    else      toast(d.error || 'Failed.', 'error');
+  });
+
+  document.getElementById('btn-test-key').addEventListener('click', async () => {
+    const inp = document.getElementById('api-key-input');
+    const key = inp.value.trim();
+    if (!key) { toast('Enter an API key first.', 'error'); return; }
+    const dot = document.querySelector('#key-status .dot');
+    const msg = document.getElementById('key-msg');
+    dot.className = 'dot spin'; msg.textContent = 'Testing\u2026';
+    const d = await fetch('/api/key/test', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ api_key: key }),
+    }).then(r => r.json());
+    dot.className   = 'dot ' + (d.ok ? 'ok' : 'err');
+    msg.textContent = d.message + (d.elapsed ? ` (${d.elapsed}ms)` : '');
+    if (d.ok) {
+      inp.value = '';
+      inp.placeholder = 'Key saved \u2713';
+      inp.disabled = true;
+      document.getElementById('btn-test-key').style.display = 'none';
+      document.getElementById('btn-reset-key').style.display = 'inline-block';
+    }
+  });
+
+  document.getElementById('btn-reset-key').addEventListener('click', async () => {
+    await fetch('/api/key', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ api_key: '' }),
+    });
+    const inp = document.getElementById('api-key-input');
+    inp.value = '';
+    inp.placeholder = 'pplx-...';
+    inp.disabled = false;
+    document.getElementById('btn-test-key').style.display = 'inline-block';
+    document.getElementById('btn-reset-key').style.display = 'none';
+    document.querySelector('#key-status .dot').className = 'dot';
+    document.getElementById('key-msg').textContent = '';
+  });
+
+  // On page load, check if key is already configured
+  fetch('/api/key').then(r => r.json()).then(d => {
+    if (d.configured) {
+      const inp = document.getElementById('api-key-input');
+      inp.placeholder = 'Key saved \u2713';
+      inp.disabled = true;
+      document.getElementById('btn-test-key').style.display = 'none';
+      document.getElementById('btn-reset-key').style.display = 'inline-block';
+      document.querySelector('#key-status .dot').className = 'dot ok';
+      document.getElementById('key-msg').textContent = 'Ready';
+    }
+  });
+}
+
+function _setExportLoading(loading) {
+  const overlay = document.getElementById('modal-export');
+  const btns = [
+    document.getElementById('btn-export'),
+    document.getElementById('btn-export-sum'),
+  ];
+  if (loading) {
+    overlay.classList.add('open');
+    btns.forEach(btn => { btn.disabled = true; });
+  } else {
+    overlay.classList.remove('open');
+    btns.forEach(btn => {
+      btn.textContent = 'Export Results';
+      btn.disabled = false;
+    });
+  }
+}
+
+async function doExport() {
+  _setExportLoading(true);
+  try {
+    const d = await fetch('/api/run/export', { method:'POST' }).then(r => r.json());
+    if (d.error) { toast(d.error, 'error'); return; }
+    window.location.href = `/api/run/download/${encodeURIComponent(d.run_name)}/${encodeURIComponent(d.filename)}`;
+    const msg = d.downloads_path
+      ? `Saved to Downloads: ${d.filename}`
+      : `Exported: ${d.filename}`;
+    toast(msg, 'success');
+  } finally {
+    _setExportLoading(false);
+    // Re-disable sidebar button if no run is active/loaded
+    if (!S.runName) document.getElementById('btn-export').disabled = true;
+  }
+}
+
+function updateCtrlBtns() {
+  document.getElementById('btn-pause').disabled        = !S.running;
+  document.getElementById('btn-stop').disabled         = !S.running;
+  document.getElementById('btn-retry-failed').disabled = S.running;
+  if (!S.running) document.getElementById('btn-pause').textContent = 'Pause';
+}
+
+function enableExport() {
+  document.getElementById('btn-export').disabled = false;
+}
+
+// ── Filters + Search ──────────────────────────────────────────────────────────
+function setupFilters() {
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      S.activeFilter = tab.dataset.filter;
+      renderTable();
+    });
+  });
+}
+
+function setupSearch() {
+  document.getElementById('search-input').addEventListener('input', e => {
+    S.searchQuery = e.target.value.toLowerCase().trim();
+    renderTable();
+  });
+}
+
+function rowVisible(row) {
+  const f = S.activeFilter;
+  if (f !== 'all') {
+    if (f === 'error') { if (!isErrRow(row)) return false; }
+    else if (row.status !== f) return false;
+  }
+  if (S.searchQuery) {
+    const q = S.searchQuery;
+    return (row.name    || '').toLowerCase().includes(q) ||
+           (row.evidence|| '').toLowerCase().includes(q) ||
+           (row.city    || '').toLowerCase().includes(q);
+  }
+  return true;
+}
+
+function incrTabCounts(row) {
+  S.tabCounts.all++;
+  if (isErrRow(row))                 S.tabCounts.error++;
+  else if (row.status in S.tabCounts) S.tabCounts[row.status]++;
+}
+
+function refreshTabCounts() {
+  document.getElementById('tc-all').textContent      = S.tabCounts.all;
+  document.getElementById('tc-active').textContent   = S.tabCounts['Active'];
+  document.getElementById('tc-closed').textContent   = S.tabCounts['Likely Closed'];
+  document.getElementById('tc-uncertain').textContent= S.tabCounts['Uncertain'];
+  document.getElementById('tc-nopres').textContent   = S.tabCounts['No Web Presence'];
+  document.getElementById('tc-error').textContent    = S.tabCounts['error'];
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  S.rows.filter(rowVisible).forEach(r => tbody.appendChild(buildRow(r, false)));
+  refreshTabCounts();
+}
+
+function appendTableRow(row, animate) {
+  const tbody = document.getElementById('tbody');
+  tbody.appendChild(buildRow(row, animate));
+  const wrap = document.getElementById('table-wrap');
+  if (wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 80)
+    wrap.scrollTop = wrap.scrollHeight;
+}
+
+function buildRow(row, animate) {
+  const err   = isErrRow(row);
+  const cls   = err                            ? 'error'
+    : row.status === 'Active'                  ? 'active'
+    : row.status === 'Likely Closed'           ? 'closed'
+    : row.status === 'Uncertain'               ? 'uncertain'
+    : row.status === 'No Web Presence'         ? 'nopres'
+    : 'uncertain';
+  const label = err ? 'Error' : row.status;
+  const confPct = err ? 0 : (parseInt(row.confidence) || 0);
+  const conf    = err ? '—' : confPct + '%';
+  const loc     = [row.city, row.state].filter(Boolean).join(', ') || '—';
+
+  const tr = document.createElement('tr');
+  if (!animate) tr.classList.add('no-anim');
+  tr.innerHTML =
+    `<td class="td-num">${row.row_index}</td>` +
+    `<td class="td-name" title="${esc(row.name)}">${esc(row.name) || '—'}</td>` +
+    `<td class="td-loc">${esc(loc)}</td>` +
+    `<td><span class="badge ${cls}"><span class="badge-dot"></span>${esc(label)}</span></td>` +
+    `<td class="td-conf">${err ? '<span class="conf-na">—</span>' : '<span class="conf-wrap"><span class="conf-bar" style="width:' + Math.round(confPct * 0.42) + 'px"></span><span class="conf-val">' + conf + '</span></span>'}</td>` +
+    `<td class="td-evid">${esc(row.evidence || '')}</td>`;
+  return tr;
+}
+
+function showTable() {
+  document.getElementById('empty-state').style.display   = 'none';
+  document.getElementById('results-table').style.display = '';
+}
+
+function resetRunUI() {
+  S.rows        = [];
+  S.tabCounts   = { all:0, Active:0, 'Likely Closed':0, Uncertain:0, 'No Web Presence':0, error:0 };
+  S.completedCount = 0;
+  S.sessionCost = 0;
+  document.getElementById('tbody').innerHTML    = '';
+  document.getElementById('log-body').innerHTML = '';
+  refreshTabCounts();
+  jumpCounters({ active:0, closed:0, uncertain:0, nopres:0 });
+  updateProgress(0, 0);
+  updateCost(0);
+  document.getElementById('stat-eta').textContent = '—';
+  document.getElementById('btn-export').disabled  = true;
+  showTable();
+}
+
+// ── Sidebar stats ─────────────────────────────────────────────────────────────
+function updateProgress(done, total) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById('prog-bar').style.width  = pct + '%';
+  document.getElementById('prog-text').textContent = `${done.toLocaleString()} / ${total.toLocaleString()}`;
+  document.getElementById('prog-pct').textContent  = total > 0 ? pct + '%' : '—';
+}
+
+function updateCost(cost) {
+  document.getElementById('stat-cost').textContent = '$' + cost.toFixed(3);
+}
+
+function setRunName(name) {
+  const el = document.getElementById('run-name-lbl');
+  el.textContent = name || 'No run loaded';
+  el.classList.toggle('empty', !name);
+}
+
+// ── Counter animation ─────────────────────────────────────────────────────────
+function triggerCounterAnim() {
+  let a=0, cl=0, u=0, n=0;
+  for (const r of S.rows) {
+    if (isErrRow(r)) continue;
+    if      (r.status === 'Active')          a++;
+    else if (r.status === 'Likely Closed')   cl++;
+    else if (r.status === 'Uncertain')       u++;
+    else if (r.status === 'No Web Presence') n++;
+  }
+  _aT.active = a; _aT.closed = cl; _aT.uncertain = u; _aT.nopres = n;
+  if (!_aF) _aF = requestAnimationFrame(stepCounters);
+}
+
+function jumpCounters(c) {
+  Object.assign(_aT, c);
+  Object.assign(_aC, c);
+  writeCounters();
+}
+
+function stepCounters() {
+  let done = true;
+  for (const k of ['active','closed','uncertain','nopres']) {
+    if (_aC[k] !== _aT[k]) {
+      const diff = _aT[k] - _aC[k];
+      const step = Math.max(1, Math.ceil(Math.abs(diff) * 0.25));
+      _aC[k] = diff > 0 ? Math.min(_aC[k]+step, _aT[k]) : Math.max(_aC[k]-step, _aT[k]);
+      done = false;
+    }
+  }
+  writeCounters();
+  _aF = done ? null : requestAnimationFrame(stepCounters);
+}
+
+function writeCounters() {
+  document.getElementById('cnt-active').textContent   = _aC.active;
+  document.getElementById('cnt-closed').textContent   = _aC.closed;
+  document.getElementById('cnt-uncertain').textContent= _aC.uncertain;
+  document.getElementById('cnt-nopres').textContent   = _aC.nopres;
+}
+
+// ── Log ───────────────────────────────────────────────────────────────────────
+function setupLogToggle() {
+  let open = true;
+  document.getElementById('log-toggle').addEventListener('click', () => {
+    open = !open;
+    document.getElementById('log-body').style.display  = open ? '' : 'none';
+    document.getElementById('log-chevron').innerHTML   = open ? '&#9650;' : '&#9660;';
+  });
+}
+
+function logLine(msg, level) {
+  const body = document.getElementById('log-body');
+  const el   = document.createElement('div');
+  el.className   = 'log-line ' + (level || 'dim');
+  el.textContent = '[' + new Date().toTimeString().slice(0,8) + '] ' + msg;
+  body.appendChild(el);
+  body.scrollTop = body.scrollHeight;
+  while (body.children.length > 500) body.removeChild(body.firstChild);
+}
+
+// ── Modals ────────────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  if (o.id === 'modal-export') return;  // not dismissible during export
+  o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); });
+});
+
+function showSummaryModal(summary, cost) {
+  const items = [
+    { label:'Active',          val: summary.Active,             color:'var(--s-active)'    },
+    { label:'Likely Closed',   val: summary['Likely Closed'],   color:'var(--s-closed)'    },
+    { label:'Uncertain',       val: summary.Uncertain,          color:'var(--s-uncertain)' },
+    { label:'No Web Presence', val: summary['No Web Presence'], color:'var(--text)'        },
+    { label:'Errors',          val: summary.Errors,             color:'var(--s-error)'     },
+    { label:'Total',           val: summary.Total,              color:'var(--accent)'      },
+  ];
+  document.getElementById('sum-grid').innerHTML = items.map(it =>
+    `<div class="sum-card"><div class="sl">${it.label}</div><div class="sv" style="color:${it.color}">${it.val||0}</div></div>`
+  ).join('');
+  document.getElementById('sum-cost').textContent = `Session cost: $${(cost||0).toFixed(4)}`;
+  openModal('modal-summary');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s||'')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function valOrNull(v) {
+  if (v===''||v==null) return null;
+  const n = parseInt(v);
+  return isNaN(n) ? null : n;
+}
+function fmtEta(secs) {
+  if (secs < 60) return `${Math.round(secs)}s`;
+  const m = Math.floor(secs/60), s = Math.round(secs%60);
+  return `${m}m ${s}s`;
+}
+function toast(msg, type) {
+  const el = document.createElement('div');
+  el.className   = 'toast-item ' + (type||'info');
+  el.textContent = msg;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+</script>
+
+</body>
+</html>

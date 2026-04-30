@@ -1,0 +1,24 @@
+# Secrets — never commit
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Run output — large files, not useful in version control
+Runs/
+
+# V2 Flask temp uploads
+.tmp_uploads/
+
+# macOS
+.DS_Store
