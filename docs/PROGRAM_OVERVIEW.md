@@ -20,7 +20,7 @@ When you run the program, here is what happens, in order:
 
 1. **You hand it a spreadsheet.** It reads the headers and figures out which columns hold the business name, city, state, and website. You don't have to format the file in any specific way — it auto-detects common header names.
 
-2. **It creates a run folder.** Every run gets its own timestamped folder under `Business Checker/Runs/`. A copy of your input file goes in there, along with a checkpoint file and a log. This means runs are reproducible and never overwrite each other.
+2. **It creates a run folder.** Every run gets its own timestamped folder under `business_checker/Runs/`. A copy of your input file goes in there, along with a checkpoint file and a log. This means runs are reproducible and never overwrite each other.
 
 3. **It checks for cached results.** If a business was already checked in the last 30 days (same name + city + state), the tool reuses that result and skips the API call. This saves money and time on overlapping datasets.
 
