@@ -49,8 +49,10 @@ business_checker/
 
 ### Running the tool standalone (for testing):
 ```bash
-python tools/check_business.py
+python -m tools.check_business
 ```
+(Must use the `-m` form — running `python tools/check_business.py` directly
+fails because the script imports from the `tools` package.)
 
 ### Running a batch (headless):
 ```bash

@@ -4,8 +4,9 @@ Business operational status checker — core API tool.
 Calls the Perplexity Sonar API to research a single business and return
 a structured verdict: Active, Likely Closed, Uncertain, or No Web Presence.
 
-Can be run standalone for testing:
-    python tools/check_business.py
+Can be run standalone for testing (must use -m form so the tools package
+imports correctly):
+    python -m tools.check_business
 """
 
 import json
