@@ -163,7 +163,7 @@ Railway's free tier (Starter) has a $5 credit/month and sleeps after 30 days of 
 Before deploying, test the web app locally:
 
 ```bash
-cd "Business Checker"
+cd business_checker
 uvicorn web_app:app --reload --port 8000
 ```
 

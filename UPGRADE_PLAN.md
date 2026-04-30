@@ -148,7 +148,7 @@ CREATE TABLE results (
 
 **Integration points:**
 - `check_business()` in `check_business.py`: Check cache before API call, save to cache after successful API call
-- Cache file location: `Business Checker/cache/results.db` (auto-created)
+- Cache file location: `business_checker/cache/results.db` (auto-created)
 - Add `--no-cache` flag to `run_checker.py` for forcing fresh checks
 - Log cache hits: `[42/709] CACHED Active (95%) | $0.000 | AABON 2, INC`
 

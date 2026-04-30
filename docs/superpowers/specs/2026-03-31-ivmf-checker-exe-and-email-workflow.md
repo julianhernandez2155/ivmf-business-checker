@@ -116,7 +116,7 @@ This is a **separate standalone script** — not part of the Business Checker EX
 ### Tool Location
 
 ```
-Business Checker/
+business_checker/
 ├── email_notifier/
 │   ├── notify.py                  # Main script
 │   ├── email_template.txt         # Plain-text email body template

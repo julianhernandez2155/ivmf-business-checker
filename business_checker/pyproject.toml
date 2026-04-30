@@ -24,6 +24,16 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+norecursedirs = [
+    "archive",
+    "Runs",
+    ".tmp_uploads",
+    ".pytest_cache",
+    ".ruff_cache",
+    "cache",
+    "templates",
+]
+xfail_strict = true
 addopts = [
     "-ra",
     "--strict-markers",

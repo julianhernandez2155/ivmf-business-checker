@@ -13,7 +13,7 @@ This project follows the WAT pattern: **Workflows → Agent → Tools**
 ## Project Layout
 
 ```
-Business Checker/
+business_checker/
 ├── tools/
 │   ├── check_business.py    # Perplexity sonar API call — single business
 │   ├── checkpoint.py        # CSV checkpoint read/write (thread-safe)

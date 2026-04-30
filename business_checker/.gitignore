@@ -13,6 +13,16 @@ build/
 .venv/
 venv/
 env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# SQLite cache (rebuilt per run, large)
+cache/
+*.db
+*.db-journal
 
 # Run output — large files, not useful in version control
 Runs/
