@@ -129,6 +129,25 @@ Label Uncertain. It is not closed, but it is not actively serving customers.
 ### Conflicting reviews — some say open, some say closed
 Check dates. If the most recent credible source (within 6 months) says closed, label Likely Closed. If the most recent says open and you can corroborate with a second source, label Active. If you cannot determine recency, label Uncertain.
 
+### Marketplace-native businesses (sells only on Etsy / Amazon / Faire / Shopify)
+Many veteran-owned product businesses don't run their own e-commerce site — they sell exclusively through marketplaces. Treat the marketplace presence itself as evidence-bearing:
+- **Active listing with stock + recent reviews (within 12 months) = strong Active signal.** Even if the website is dead, an active Etsy or Amazon storefront with shipped orders proves operations.
+- **Listing exists but products are "Currently unavailable" or store is "Vacation mode" for 6+ months = Uncertain.**
+- **No listing on the marketplace they were known to use + no other channels = Likely Closed.**
+
+For these businesses, the AI may incorrectly call them "Likely Closed" because the website is dead. Your job is to find the marketplace and verify.
+
+### Food trucks, caterers, mobile / home-based services
+These businesses typically have one strong channel (Instagram, Facebook, or a booking page) and very thin presence elsewhere. The standard "two channels" rule for Active is too strict. Override:
+- **One strong channel with content within 6 months + active customer interaction (DMs answered, orders posted, events scheduled) = Active.**
+- **One channel with last activity 6–24 months old, nothing more recent = Uncertain.**
+- **Channel exists but has no commerce indicators (just photos, no orders/menu/booking) and no other signals = Uncertain, lean toward Likely Closed if 12+ months stale.**
+
+Document in your justification: "Single-channel business; verified via [platform] activity dated [month/year]."
+
+### E-commerce-only businesses (no physical location, online sales only)
+Use the website + a third-party signal (BBB listing, marketplace storefront, customer reviews). Do NOT downgrade these for lacking a Google Maps listing — that's expected.
+
 ---
 
 ## Common Pitfalls

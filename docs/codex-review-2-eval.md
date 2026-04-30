@@ -1,8 +1,11 @@
-# Codex Review #2 — Eval Design (self-review)
+# Codex Review #2 — Eval Design
 
 **Date:** 2026-04-30
-**Reviewer:** Self-review by orchestrator (Claude Opus 4.7)
-**Reason:** Codex CLI run aborted after ~40 min. Its sandbox kept blocking the python verification subprocesses it tried to run, leaving it unable to actually test edge cases. Output captured up to the abort is at `/tmp/codex-review-2.txt` (preserved as evidence) but contains no completed analysis.
+**Reviewers:**
+1. Self-review by orchestrator (Claude Opus 4.7) — initial pass
+2. **Codex CLI 0.117.0 (gpt-5)** — second pass, sandbox-safe prompt that explicitly instructed not to attempt subprocess execution. ~30k tokens, ~5 min wall time. Output at `/tmp/codex-review-2b.txt`.
+
+**Note on first attempt:** An earlier Codex run (~40 min) hung when its sandbox repeatedly denied subprocess calls it tried to use for verification. Killed at 15:56. Re-issued with static-only prompt; second attempt succeeded.
 
 This review is by the orchestrator that built and tested the eval pipeline. Surface area:
 - `business_checker/eval/sample.py` (202 lines)
@@ -85,3 +88,38 @@ Implementing P0 (#1) only. Everything else deferred to Phase 7 or post-demo with
 - `pytest business_checker/eval/tests/` → all green including new test
 - `python3 -m eval.sample --checkpoint <smoke> --input-xlsx ../data/BMOSG_All_Businesses.xlsx --n-per-status 5` → produces sample with city/state populated
 - `streamlit run eval/review_app.py -- --dataset <new-sample>` shows city/state under business name
+
+---
+
+## Codex review #2 findings (after the city/state fix was committed)
+
+Codex was given the self-review above and asked to confirm or push back. Verbatim summary of its 6 answers:
+
+1. **Headline metric:** Keep overall agreement, ADD macro-F1 as the co-headline. Agreed with self-review. (Macro-F1 penalizes both minority-class misses and overprediction; balanced accuracy fixes only recall imbalance; MCC is too opaque for leadership.)
+
+2. **Sampling:** Agreed with punting on confidence double-stratification at n=80. (At 4 statuses × 4 confidence buckets = 16 cells, n=5 each, individual cells too small for any inference.)
+
+3. **Wilson math:** Confirmed correct. For n=10, p=1.0 the lower bound resolves to ~0.722, matching expected.
+
+4. **classification_report labels arg:** **Push-back.** Self-review used `present_labels` (filtering by appearance in the data). Codex argued: pass all 4 STATUS_LABELS with zero_division=0 always. Filtering hides absent classes — exactly the case leadership needs to see (e.g., "the AI never produced any 'No Web Presence' verdicts"). **Accepted and applied.**
+
+5. **LABELING_PROTOCOL.md ambiguity:** Confirmed gaps for marketplace-native, food-truck, mobile/home-based, and e-commerce-only veteran businesses. Specifically, the "two channels within 24 months" Active rule is too strict for single-channel businesses. **Accepted and applied — added 4-section addendum to the protocol.**
+
+6. **Other findings:**
+   - **6a (real bug):** `quick_links` in review_app.py searches by name only, not name + city/state. Common-name businesses route to the wrong entity. **Fixed — Google + Maps + Facebook + LinkedIn now use `name + city + state`; Instagram still uses name-only because hashtag-style search doesn't benefit from location.**
+   - **6b (defensive):** Neither sample.py nor score.py validate that predicted_status / human_label values are within the canonical 4 + Unable-to-Determine. The Pydantic schema in `tools/check_business.py` enforces this for new AI calls, but a corrupted CSV or future model swap could leak off-ontology values that silently skew metrics. **Fixed — added validation in score.py that raises ValueError on off-ontology values, with a clear error message naming the offending values.**
+
+## Fixes applied this session
+
+| Finding | File | Status |
+|---|---|---|
+| P0: city/state missing | `eval/sample.py`, output schema | ✅ shipped (commit 8ee2db9) |
+| P1 #4: classification_report uses present_labels | `eval/score.py` lines 167-184 | ✅ shipped this commit |
+| P1 #6a: quick_links missing location | `eval/review_app.py` | ✅ shipped this commit |
+| P1 #6b: no off-ontology validation | `eval/score.py` | ✅ shipped this commit |
+| P1 #5: LABELING_PROTOCOL gaps | `eval/LABELING_PROTOCOL.md` | ✅ shipped this commit |
+| P1 #1: macro-F1 in headline | `eval/score.py` | ⏳ deferred to Phase 7 |
+| P1 #2: bootstrap CI on per-status | `eval/score.py` | ⏳ deferred to Phase 7 |
+| P1 #3: ECE single number | `eval/score.py` | ⏳ deferred to Phase 7 |
+
+Phase 4 exits with these fixes shipped and 111 pytest tests passing. The deferred items are documented and tagged for Phase 7 — they're enhancements to the report layout, not blockers for the 80-row labeling work.

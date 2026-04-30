@@ -154,6 +154,25 @@ def score(
     if n_labeled == 0:
         raise ValueError("No labeled rows after excluding empty / Unable-to-Determine rows.")
 
+    # Defensive validation — the AI is constrained by Pydantic to emit only
+    # the 4 canonical statuses, but this catches data corruption (manual CSV
+    # edits, future model swaps that bypass the schema) before it silently
+    # skews the metrics.
+    valid_pred = set(STATUS_LABELS)
+    valid_human = valid_pred | {UNABLE_TO_DETERMINE}
+    bad_pred = set(df["predicted_status"]) - valid_pred
+    bad_human = set(df["human_label"]) - valid_human
+    if bad_pred:
+        raise ValueError(
+            f"predicted_status contains off-ontology values: {sorted(bad_pred)}. "
+            f"Expected one of {STATUS_LABELS}."
+        )
+    if bad_human:
+        raise ValueError(
+            f"human_label contains off-ontology values: {sorted(bad_human)}. "
+            f"Expected one of {STATUS_LABELS + [UNABLE_TO_DETERMINE]} (or empty)."
+        )
+
     # -----------------------------------------------------------------------
     # Overall agreement
     # -----------------------------------------------------------------------
@@ -163,12 +182,16 @@ def score(
 
     # -----------------------------------------------------------------------
     # Per-status metrics via sklearn classification_report
+    #
+    # Always pass ALL 4 canonical labels with zero_division=0, even if a
+    # status didn't appear in this batch. Filtering to "present" labels
+    # silently hides absent classes — exactly the case leadership needs to
+    # see (e.g. "the AI never produced any 'No Web Presence' verdicts").
     # -----------------------------------------------------------------------
-    present_labels = [lbl for lbl in STATUS_LABELS if lbl in df["predicted_status"].values or lbl in df["human_label"].values]
     report_dict = classification_report(
         y_true=df["human_label"],
         y_pred=df["predicted_status"],
-        labels=present_labels,
+        labels=STATUS_LABELS,
         zero_division=0,
         output_dict=True,
     )
@@ -180,7 +203,7 @@ def score(
             "recall": round(float(report_dict.get(lbl, {}).get("recall", 0.0)), 3),
             "f1": round(float(report_dict.get(lbl, {}).get("f1-score", 0.0)), 3),
         }
-        for lbl in present_labels
+        for lbl in STATUS_LABELS
     }
 
     # -----------------------------------------------------------------------
@@ -242,7 +265,7 @@ def score(
             f"{per_status[status]['recall']:.1%}",
             f"{per_status[status]['f1']:.3f}",
         ]
-        for status in present_labels
+        for status in STATUS_LABELS
     ]
 
     cm_headers = ["Predicted \\ Human"] + STATUS_LABELS
