@@ -20,7 +20,7 @@ Use exactly these values. The review app provides them as radio buttons.
 ### Active
 The business is currently operational and serving customers.
 
-Use when you find **at least two** of the following, dated within the last 24 months:
+Use when you find **at least two** of the following, dated within the **last 12 months**:
 - A functional website with real product/service content (not a parked page or "coming soon")
 - An active e-commerce store, booking system, or scheduling tool
 - A verified Google Business Profile showing recent activity
@@ -28,7 +28,11 @@ Use when you find **at least two** of the following, dated within the last 24 mo
 - A third-party directory listing (Yelp, BBB, chamber of commerce) with current contact info
 - A news article, review, or event listing confirming current activity
 
+**Exception — extend to 24 months only when one of the two signals is "hard evidence":** an e-commerce store with current stock and active checkout, an event calendar with future-dated events, or a course/booking page with future-dated availability. A 24-month-old Facebook post + a 22-month-old Yelp listing is **not** Active — that's two stale signals; treat as Uncertain.
+
 **Do not use Active if** you find only a website that loads but has no products, no contact info, no indication of actual commerce.
+
+**Edge cases — when you hit one, document your reasoning in the justification field and move on.** Examples that may come up: business rebranded under a new name, business sold to a non-veteran owner, dataset record has a typo or wrong city, owner deceased and family continues operating. Don't pre-stress these — pick a defensible call, write *why* in the justification, and we'll review the edge-case rows together at the end.
 
 ---
 
