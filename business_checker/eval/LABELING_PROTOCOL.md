@@ -75,7 +75,14 @@ Use when:
 - Business is very new (founded within 6 months of today) with sparse online presence
 - Sources conflict in a way you cannot resolve
 
-Do **not** default here just because research is hard. Spend the full 5 minutes before choosing Uncertain.
+**Recency anchors for the Uncertain band (when recency is the deciding factor):**
+- Most recent activity is **12–36 months old** across the channels you checked, but the business clearly existed at some point → **Uncertain**.
+- All recent activity is **36+ months old** AND no other current signals → re-read **Likely Closed Pattern B** (this is what stale-record-only businesses look like).
+- All recent activity is **within 12 months** → re-read **Active**.
+
+**Stale incorporation records / directory listings only:** If the only thing you find is a state incorporation record, BBB stub, or generic business directory listing (Manta, OpenFOS, Infogroup, etc.) with no activity since 2022 — and no social media, no Maps, no press, no recent owner activity — that pattern is **Likely Closed (Pattern B)**, NOT Uncertain. Old incorporation records alone are not evidence of current operation. Multiple stale signals with nothing recent = closure pattern.
+
+Do **not** default to Uncertain just because research is hard. Spend the full 5 minutes before choosing it.
 
 ---
 
@@ -139,6 +146,14 @@ These situations come up repeatedly. Follow the rule consistently.
 ### Website loads but is a generic landing page (no products, no contact info)
 Treat as Uncertain unless you find active commerce on a third-party platform (Etsy, Amazon, Faire). A domain that loads a blank template is not evidence of active operations.
 
+### Squatted / hijacked domains (gambling, adult content, spam, generic blog)
+If the original business's domain now hosts content totally unrelated to the business — a gambling site, adult content, generic spam blog, or a "for sale" page — treat the domain as **dead**. It counts as one signal of business cessation, but only one. The labeling rules for Likely Closed (Pattern B) still apply: you must find no active social media, no active Google Business Profile, and no other channel hits before calling Likely Closed.
+
+Squatted domain + active Facebook with recent posts = **Active**, not Likely Closed.
+
+### Empty website builder pages (Square, Weebly, Wix without business content)
+If the website is a generic Square/Weebly/Wix landing page with no business-specific products, services, or contact info — just a template — treat it the same as a dead domain. It's a signal of website abandonment, not business closure. Apply the Pattern B rules above.
+
 ### Business appears active on social media but website is dead
 If the most recent post is within 12 months AND mentions active commerce (new products, events, orders), label Uncertain and note the split signal. Do not label Active on social alone unless the post explicitly says they are still taking orders and you see evidence of customer interaction.
 
@@ -200,15 +215,27 @@ Use the website + a third-party signal (BBB listing, marketplace storefront, cus
 | Signal | Likely label |
 |--------|-------------|
 | Website loads + e-commerce + recent reviews | Active |
-| Domain dead + no social + no GBP | Likely Closed or No Web Presence |
-| GBP shows "Permanently Closed" | Likely Closed |
+| Domain dead + active Facebook (post < 12 mo) | Active |
+| GBP shows "Permanently Closed" | Likely Closed (Pattern A) |
+| Owner publicly announced closure | Likely Closed (Pattern A) |
+| Domain dead + no social + no GBP + no other channels | Likely Closed (Pattern B) |
+| State incorporation record only, nothing post-2022 | Likely Closed (Pattern B) |
+| Squatted domain + active Facebook | Active |
+| Squatted domain + no other signals | Likely Closed (Pattern B) |
+| Empty Square/Weebly/Wix template + nothing else | Likely Closed (Pattern B) |
 | Website loads but no content/dates | Uncertain |
-| Social media only, last post 12 mo | Uncertain |
-| Social media only, last post < 6 mo + orders | Active (use cautiously) |
+| Social media only, last post 12-36 mo | Uncertain |
+| Social media only, last post < 12 mo + orders | Active |
 | Website loads, products present, no other signals | Uncertain (verify 2nd source) |
+| All signals 36+ mo old | Likely Closed (Pattern B) |
 | Completely unfindable + no external references | No Web Presence |
-| You cannot distinguish from similarly-named businesses | Unable to Determine |
+| Cannot distinguish from similarly-named businesses | Unable to Determine |
 
 ---
 
-*Protocol version: 1.0 — April 2026. Revise after completing first full labeling session.*
+*Protocol version: 1.1 — May 2026. v1.0 → v1.1 changelog:*
+- *Active threshold tightened from 24 months to 12 months (with hard-evidence exception)*
+- *Likely Closed restructured into Pattern A (one unambiguous signal) / Pattern B (multiple weak signals)*
+- *Added stale-record handling rule (state record + nothing else recent → Pattern B, not Uncertain)*
+- *Added recency anchors to Uncertain (12-36 mo band)*
+- *Added explicit handling for squatted domains and empty website-builder pages*
