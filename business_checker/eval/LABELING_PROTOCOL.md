@@ -39,15 +39,30 @@ Use when you find **at least two** of the following, dated within the **last 12 
 ### Likely Closed
 The business was real but shows strong signals of cessation.
 
-Use when you find **at least one** of the following:
-- Domain is expired, parked, or returns a DNS error
-- Website loads but displays "permanently closed," "no longer in business," or redirects to a generic page
+**Critical principle: a dead website by itself is NOT enough.** Many small businesses let their domain lapse while continuing to operate through Facebook, Instagram, Google Maps, farmer's markets, or word of mouth. A dead domain is a *prompt to investigate other channels*, not a verdict.
+
+Use **either** of these patterns:
+
+**Pattern A — One unambiguous closure signal:**
+- Website loads and displays "permanently closed," "no longer in business," or "thank you for X years"
 - Google Business Profile shows "Permanently Closed"
 - Yelp or Facebook page shows "Closed"
-- Last social media post is 3+ years old with no recent activity on any channel
-- Owner has publicly announced closure (news article, social post)
+- Owner has publicly announced closure (news article, social post, LinkedIn update saying they moved on)
 
-You do not need to prove closure — you need reasonable evidence. If you cannot confirm active operations and find at least one closure signal, use this label.
+These are stand-alone — one is enough.
+
+**Pattern B — Multiple weak signals (none alone sufficient, combined they're conclusive):**
+- Dead website (expired, parked, DNS error, or 404) **AND**
+- No active social media presence (Facebook/Instagram/LinkedIn either don't exist for this business or last post is 3+ years old) **AND**
+- No active Google Business Profile or Yelp listing **AND**
+- No marketplace presence for product businesses (Etsy/Amazon/Faire storefront missing or "currently unavailable" 6+ months) **AND**
+- No recent news, press, or owner activity referencing the business
+
+A dead domain *plus* an active Facebook with last post 4 months ago is **not** Likely Closed — that's a business that lost its website but is still operating. Label Active.
+
+A dead domain *plus* zero other signals after thorough search is Likely Closed.
+
+You do not need to prove closure — you need to have searched all the standard channels (per "Required Investigation" below) and come up empty on every one. If you didn't check Facebook/Instagram/Maps, you haven't earned Likely Closed yet.
 
 ---
 
