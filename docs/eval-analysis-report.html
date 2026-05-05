@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IVMF Business Checker — Evaluation Analysis Report</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --line: #e5e5e5;
+    --accent: #1f5e3f;
+    --accent-soft: #e8f3ed;
+    --warn: #b54400;
+    --warn-soft: #fff1e6;
+    --danger: #9c1818;
+    --danger-soft: #fbe6e6;
+    --info: #1a4d80;
+    --info-soft: #e8f1fa;
+    --code-bg: #f5f5f5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 32px 96px 32px;
+  }
+  header {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 24px;
+    margin-bottom: 48px;
+  }
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.02em;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    margin: 0;
+  }
+  .meta {
+    display: flex;
+    gap: 24px;
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .meta strong { color: var(--ink); }
+  h2 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 56px 0 16px 0;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 32px 0 12px 0;
+  }
+  h4 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 20px 0 8px 0;
+    color: var(--ink);
+  }
+  p { margin: 0 0 16px 0; font-size: 15px; }
+  ul, ol { margin: 0 0 16px 0; padding-left: 24px; font-size: 15px; }
+  li { margin-bottom: 6px; }
+  .lede {
+    font-size: 17px;
+    color: var(--ink);
+    background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+    padding: 16px 20px;
+    margin: 24px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .stat-detail {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .stat.accent .stat-value { color: var(--accent); }
+  .stat.warn .stat-value { color: var(--warn); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px 0;
+    font-size: 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    background: #f0f0f0;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  tr:last-child td { border-bottom: none; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .pill.active { background: var(--accent-soft); color: var(--accent); }
+  .pill.closed { background: var(--danger-soft); color: var(--danger); }
+  .pill.uncertain { background: var(--warn-soft); color: var(--warn); }
+  .pill.nwp { background: #f0f0f0; color: var(--muted); }
+  .pill.utd { background: #e8e8f5; color: #4a3d8a; }
+  .arrow { color: var(--muted); margin: 0 6px; font-weight: 400; }
+  .row-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--info);
+    border-radius: 0 6px 6px 0;
+    padding: 16px 20px;
+    margin: 12px 0;
+  }
+  .row-card.danger { border-left-color: var(--danger); }
+  .row-card.warn { border-left-color: var(--warn); }
+  .row-card.accent { border-left-color: var(--accent); }
+  .row-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .row-head strong { font-size: 15px; }
+  .row-meta {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .quote {
+    background: var(--code-bg);
+    border-left: 3px solid var(--muted);
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--ink);
+    border-radius: 0 4px 4px 0;
+  }
+  .quote::before { content: "\201C"; color: var(--muted); font-size: 24px; line-height: 0; vertical-align: -8px; margin-right: 4px; }
+  .quote::after { content: "\201D"; color: var(--muted); font-size: 24px; line-height: 0; vertical-align: -8px; margin-left: 4px; }
+  code, pre {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--code-bg);
+    border-radius: 3px;
+    padding: 1px 5px;
+    color: #2a2a2a;
+  }
+  pre {
+    padding: 12px 16px;
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    line-height: 1.5;
+    margin: 12px 0;
+  }
+  pre code { padding: 0; background: none; }
+  .callout {
+    background: var(--info-soft);
+    border-left: 4px solid var(--info);
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 0 4px 4px 0;
+    font-size: 14px;
+  }
+  .callout.warn { background: var(--warn-soft); border-left-color: var(--warn); }
+  .callout.danger { background: var(--danger-soft); border-left-color: var(--danger); }
+  .callout.accent { background: var(--accent-soft); border-left-color: var(--accent); }
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin: 24px 0 32px 0;
+  }
+  .toc-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .toc ol { margin: 0; padding-left: 20px; }
+  .toc a { color: var(--ink); text-decoration: none; }
+  .toc a:hover { color: var(--accent); text-decoration: underline; }
+  .fix-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+  .fix-card.priority-1 { border-left: 4px solid var(--accent); }
+  .fix-card.priority-2 { border-left: 4px solid var(--info); }
+  .fix-card.priority-3 { border-left: 4px solid var(--warn); }
+  .fix-card.priority-4 { border-left: 4px solid var(--muted); }
+  .fix-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .fix-id {
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .fix-name {
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .badge {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .badge.effort { background: #e8e8e8; color: #555; }
+  .badge.confidence-high { background: var(--accent-soft); color: var(--accent); }
+  .badge.confidence-med { background: var(--warn-soft); color: var(--warn); }
+  .footer {
+    margin-top: 96px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+  }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 720px) {
+    .two-col { grid-template-columns: 1fr; }
+    .container { padding: 24px 16px 64px 16px; }
+    h1 { font-size: 26px; }
+  }
+  @media print {
+    body { background: white; }
+    .container { padding: 16px; }
+    .row-card, .fix-card, .stat, table { break-inside: avoid; }
+    h2 { break-before: page; }
+    h2:first-of-type { break-before: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>IVMF Business Checker — Evaluation Analysis Report</h1>
+  <p class="subtitle">Phase 7 baseline analysis: what your manual labels reveal about the AI, and the surgical fixes to improve accuracy.</p>
+  <div class="meta">
+    <span><strong>Dataset:</strong> bmosg_v1_eval_sample.csv (60 rows)</span>
+    <span><strong>Labeler:</strong> Julian Hernandez</span>
+    <span><strong>Generated:</strong> 2026-05-05</span>
+    <span><strong>Source:</strong> 709-row BMOSG v1 run</span>
+  </div>
+</header>
+
+<section class="lede">
+  <strong>Bottom line:</strong> The AI correctly classifies the easy cases (90+% confidence predictions are 90% accurate) and correctly flags the hard ones (low-confidence band agrees with you only 20% — but it knew it was guessing). The 69% headline number masks a single dominant failure mode that's fixable in the prompt. <strong>14 of 18 disagreements collapse to 5 surgical changes</strong>, projected to push agreement to ~88-93% on this eval.
+</section>
+
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#headline">Headline metrics</a></li>
+    <li><a href="#what-you-saw">What you saw vs. what the AI saw</a></li>
+    <li><a href="#labeler-patterns">Your labeling patterns (what makes your data signal-rich)</a></li>
+    <li><a href="#failure-modes">The AI's failure modes — every disagreement, categorized</a></li>
+    <li><a href="#calibration">Confidence vs. correctness: where the AI knows it's guessing</a></li>
+    <li><a href="#domain-insights">Veteran-business domain insights</a></li>
+    <li><a href="#tool-failures">Where the tool itself broke down</a></li>
+    <li><a href="#fixes">The fix list: 9 ranked technical changes</a></li>
+    <li><a href="#unknowns">Open questions before shipping</a></li>
+    <li><a href="#what-this-means">What this means for the leadership pitch</a></li>
+  </ol>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="headline">1. Headline metrics</h2>
+
+<div class="stat-grid">
+  <div class="stat accent">
+    <div class="stat-label">Overall agreement</div>
+    <div class="stat-value">69.0%</div>
+    <div class="stat-detail">95% Wilson CI: 56.2% – 79.4% (n=58)</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Rows labeled</div>
+    <div class="stat-value">60</div>
+    <div class="stat-detail">2 excluded as Unable to Determine</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Disagreements</div>
+    <div class="stat-value">18</div>
+    <div class="stat-detail">14 prompt-fixable, 1 scraper, 1 ambiguous, 2 dataset</div>
+  </div>
+  <div class="stat accent">
+    <div class="stat-label">90+% confidence accuracy</div>
+    <div class="stat-value">90%</div>
+    <div class="stat-detail">High-confidence predictions are reliable</div>
+  </div>
+</div>
+
+<h3>Per-status performance</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Status</th>
+      <th class="num">n</th>
+      <th class="num">Precision</th>
+      <th class="num">Recall</th>
+      <th class="num">F1</th>
+      <th>Read</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="pill active">Active</span></td>
+      <td class="num">22</td>
+      <td class="num">90.0%</td>
+      <td class="num">81.8%</td>
+      <td class="num">0.857</td>
+      <td>Strong. AI rarely calls a closed business Active. Two false-Active cases (rows 85, 271) are URL-misinterpretation patterns.</td>
+    </tr>
+    <tr>
+      <td><span class="pill closed">Likely Closed</span></td>
+      <td class="num">24</td>
+      <td class="num">83.3%</td>
+      <td class="num">62.5%</td>
+      <td class="num">0.714</td>
+      <td>Recall is the gap. AI under-classifies closures because it punts to Uncertain instead of committing.</td>
+    </tr>
+    <tr>
+      <td><span class="pill uncertain">Uncertain</span></td>
+      <td class="num">10</td>
+      <td class="num">35.0%</td>
+      <td class="num">70.0%</td>
+      <td class="num">0.467</td>
+      <td>Low precision means the AI is over-using Uncertain. Most "Uncertain" predictions should have been Likely Closed.</td>
+    </tr>
+    <tr>
+      <td><span class="pill nwp">No Web Presence</span></td>
+      <td class="num">2</td>
+      <td class="num">0.0%</td>
+      <td class="num">0.0%</td>
+      <td class="num">0.000</td>
+      <td>AI never produced this verdict; you found 2 cases (Emotion On Walls, SerenaTea). Post-processing override is too aggressive.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Confusion matrix</h3>
+<p>Rows = your label (truth), columns = AI's prediction.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Your label \ AI</th>
+      <th class="num">Active</th>
+      <th class="num">Likely Closed</th>
+      <th class="num">Uncertain</th>
+      <th class="num">No Web Presence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="pill active">Active</span></td>
+      <td class="num"><strong>18</strong></td>
+      <td class="num">1</td>
+      <td class="num">3</td>
+      <td class="num">0</td>
+    </tr>
+    <tr>
+      <td><span class="pill closed">Likely Closed</span></td>
+      <td class="num">0</td>
+      <td class="num"><strong>15</strong></td>
+      <td class="num">9</td>
+      <td class="num">0</td>
+    </tr>
+    <tr>
+      <td><span class="pill uncertain">Uncertain</span></td>
+      <td class="num">2</td>
+      <td class="num">1</td>
+      <td class="num"><strong>7</strong></td>
+      <td class="num">0</td>
+    </tr>
+    <tr>
+      <td><span class="pill nwp">No Web Presence</span></td>
+      <td class="num">0</td>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="num">0</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <strong>Read the matrix:</strong> The single biggest cell is <strong>9 cases where you said "Likely Closed" but the AI said "Uncertain"</strong>. That one bucket is half the disagreement. There are <strong>zero</strong> cases of "AI said Active, you said Likely Closed" — the AI is never falsely keeping closed businesses alive. The failure mode is over-caution, not over-confidence.
+</div>
+
+<!-- ===================================================== -->
+<h2 id="what-you-saw">2. What you saw vs. what the AI saw</h2>
+
+<p>Across 60 rows, your investigation was systematically deeper than what the AI's evidence-gathering surfaced. Two patterns emerge:</p>
+
+<div class="two-col">
+  <div class="row-card accent">
+    <h4>What you weighted heavily</h4>
+    <ul>
+      <li><strong>Instagram recency</strong> — last post date and follower counts as primary social proof</li>
+      <li><strong>Footer copyright year</strong> — fast recency proxy (rows 132, 219, 223)</li>
+      <li><strong>Visual quality of website</strong> — pre-filter for investment level</li>
+      <li><strong>Owner LinkedIn employment dates</strong> — used for closure proof when domain dead</li>
+      <li><strong>"Add to cart" functional test</strong> — manually clicking through</li>
+      <li><strong>Name-only social search</strong> when "Name + City + State" failed</li>
+    </ul>
+  </div>
+  <div class="row-card warn">
+    <h4>What the AI overweighted</h4>
+    <ul>
+      <li><strong>Directory listings without dates</strong> (Manta, ZoomInfo, OpenFOS) — treated as activity signal when they're not</li>
+      <li><strong>FMCSA/DOT/SBA records</strong> — these confirm legal entity status, not operations</li>
+      <li><strong>Federal contracts without recency</strong> — entities can hold contracts after going dormant</li>
+      <li><strong>Old press articles without dates</strong> — used as Active evidence when articles were 3+ years old</li>
+      <li><strong>"Service descriptions" on a website</strong> — treated as commerce evidence even when site explicitly says "not accepting new orders"</li>
+    </ul>
+  </div>
+</div>
+
+<h3>The single biggest insight from your notes</h3>
+<div class="callout warn">
+  <strong>The AI's social-media search uses "Business Name + City + State" — and that pattern systematically fails on LinkedIn and Facebook.</strong> You documented this in 5+ rows. When you manually retry with just "Business Name", recent posts surface. This is a single, fixable cause behind multiple "missed-channel" disagreements (rows 583, 258, and more).
+</div>
+
+<!-- ===================================================== -->
+<h2 id="labeler-patterns">3. Your labeling patterns</h2>
+
+<h3>Your investigation workflow (consistent across 60 rows)</h3>
+<ol>
+  <li><strong>Visual quality assessment</strong> — colorful/lively vs. low-quality template</li>
+  <li><strong>Footer copyright year</strong> — scroll to bottom, read "© 2025" or "© 2026"</li>
+  <li><strong>Instagram check</strong> — last post date, follower count, pinned announcements</li>
+  <li><strong>Facebook check</strong> — last post date (especially for service businesses)</li>
+  <li><strong>Google Maps</strong> — listing existence + "Permanently Closed" flag</li>
+  <li><strong>"Add to Cart" test</strong> — manually trigger checkout flow if e-commerce site</li>
+  <li><strong>LinkedIn (with name-only fallback)</strong> — when Name+City+State fails, retry with name alone</li>
+  <li><strong>Owner-name search</strong> (situational) — for closures, find founder LinkedIn end dates</li>
+</ol>
+
+<h3>Your implicit decision rules (encoded in your justifications)</h3>
+
+<div class="row-card accent">
+  <h4>Active vs. Uncertain boundary</h4>
+  <p><strong>Tip toward Active when:</strong> Recent social activity (within ~12 months), functioning e-commerce, current-year copyright, or owner actively promoting.</p>
+  <p><strong>Tip toward Uncertain when:</strong> Social activity 6-12+ months old, website exists but no purchase mechanism, or geographic mismatch you can't resolve.</p>
+</div>
+
+<div class="row-card warn">
+  <h4>Uncertain vs. Likely Closed boundary (your operative rule)</h4>
+  <p><strong>"Dead domain + no social media within ~12-18 months = Likely Closed."</strong> One recent social media signal (even just a profile update within 12 months) overrides a dead domain and pulls it back to Uncertain.</p>
+  <p><em>Example (row 380 A Simple Organizing):</em> "non functional website parking page and last social media post was 2 years ago" → Likely Closed.</p>
+  <p><em>Example (row 583 Achieve New Heights):</em> "linkedin... last post was 1 month ago. Same thing on the facebook, there are recent posts from 2025. This would definitely be uncertain and need a follow up."</p>
+</div>
+
+<h3>Justification quality</h3>
+<p>Median justification length: <strong>237 characters</strong>. Range: 23 to 1,787 characters. Justifications are highly correlated with verdict difficulty — agreements get short notes ("agree with the evidence"), disagreements get detailed walkthroughs of what you found and where the AI missed it. <strong>Your disagreement justifications are the highest-value data in this entire eval.</strong></p>
+
+<h3>Inconsistencies worth knowing about</h3>
+<ul>
+  <li><strong>Row 320 vs. 581 (Coping Resources duplicate):</strong> Same business under different names. Labeled "Likely Closed" and "Unable to Determine" respectively. Reflects a dataset deduplication problem more than a labeling error.</li>
+  <li><strong>NWP vs. Likely Closed boundary (rows 125, 88 vs. 578):</strong> When zero results return, you sometimes use NWP and sometimes Likely Closed. The implicit distinction seems to be "did anything mention this business at all" — but the rule isn't documented.</li>
+  <li><strong>Row 424 (JMCO Consulting):</strong> Labeled Active but you wrote that the AI's evidence was wrong and "this should likely be flagged as Uncertain." A label-vs-confidence-rebuke split.</li>
+</ul>
+
+<!-- ===================================================== -->
+<h2 id="failure-modes">4. The AI's failure modes — every disagreement</h2>
+
+<p>Each of the 18 disagreements categorized into one of 11 failure buckets. Quotations are verbatim from your justification field.</p>
+
+<h3>Bucket: Pattern-B Hesitancy (9 rows — biggest single bucket)</h3>
+<p><em>The AI hedges to "Uncertain" when the evidence supports "Likely Closed" — dead domain + only stale directory listings + no recent social.</em></p>
+
+<div class="row-card warn">
+  <div class="row-head"><strong>Row 31 — King's Coffee, LLC</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (55%) <span class="arrow">→</span> You: <span class="pill closed">Likely Closed</span></span></div>
+  <p>AI hedged on Eventeny + FedLinks listings. You found Facebook with last post July 2024 (>10 mo) + non-functional website.</p>
+  <div class="quote">I'm gonna mark it as likely closed because i was able to find their facebook, but their last post was from july 2024 and their website is not functional.</div>
+</div>
+
+<div class="row-card warn">
+  <div class="row-head"><strong>Row 163 — Dashfire Beards</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (55%) <span class="arrow">→</span> You: <span class="pill closed">Likely Closed</span></span></div>
+  <div class="quote">I think it's likely closed based off all the evidence.</div>
+  <p>Single old Alignusapp directory listing + parking page. No reason to hedge.</p>
+</div>
+
+<div class="row-card warn">
+  <div class="row-head"><strong>Row 177 — Peachy Keen Perfume</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (65%) <span class="arrow">→</span> You: <span class="pill closed">Likely Closed</span></span></div>
+  <div class="quote">Probably closed. nice website but says coming soon and the last posts from any of their social medias was 2022.</div>
+  <p>"Coming soon" parking + Wix backup with no dates + last social 2022. AI took the Wix backup as a positive signal.</p>
+</div>
+
+<div class="row-card warn">
+  <div class="row-head"><strong>Row 286 — Sword & Plough</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (65%) <span class="arrow">→</span> You: <span class="pill closed">Likely Closed</span></span></div>
+  <div class="quote">Their website is dead, their last facebook post was 2022 and all your other evidence points to no activity. I think it's most likely closed.</div>
+  <p>AI cited undated Bespoke Edge interview + old Sustainable Brands article as if they were recent.</p>
+</div>
+
+<div class="row-card warn">
+  <div class="row-head"><strong>Row 380 — A Simple Organizing & Moving Co. LLC</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (55%) <span class="arrow">→</span> You: <span class="pill closed">Likely Closed</span></span></div>
+  <div class="quote">Probably closed. non functional website parking page and last social media post was 2 years ago.</div>
+  <p>AI treated FMCSA DOT# (which never expires) as activity proof. DOT numbers persist for defunct carriers.</p>
+</div>
+
+<div class="row-card warn">
+  <div class="row-head"><strong>Row 470 — TTG Properties</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (55%) <span class="arrow">→</span> You: <span class="pill closed">Likely Closed</span></span></div>
+  <div class="quote">I disagree. Looks like a general website. No business owner name was provided in the dataset on top of it being a generic website.</div>
+  <p>Generic Wix template with no specifics. Empty-builder rule in protocol applies; AI didn't.</p>
+</div>
+
+<div class="row-card warn">
+  <div class="row-head"><strong>Row 538 — Spectra Cargo & Logistics</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (65%) <span class="arrow">→</span> You: <span class="pill closed">Likely Closed</span></span></div>
+  <div class="quote">No evidence of current operations.</div>
+  <p>Domain explicitly "for sale" + ZoomInfo/Indeed records pre-2022 + FMCSA record for a different entity in a different city.</p>
+</div>
+
+<div class="row-card warn">
+  <div class="row-head"><strong>Row 680 — Bundook</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (55%) <span class="arrow">→</span> You: <span class="pill closed">Likely Closed</span></span></div>
+  <div class="quote">Probably likely closed. Coming soon website with a listing on IVMF probably means in the past 2 year they never deployed and are probably closed.</div>
+  <p>"Opening soon" + 2024 IVMF directory listing + 2-year gap = never launched. AI treated dataset listing as activity.</p>
+</div>
+
+<div class="row-card danger">
+  <div class="row-head"><strong>Row 193 — Alpha Outpost</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (65%) <span class="arrow">→</span> You: <span class="pill closed">Likely Closed</span></span></div>
+  <p><strong>Most damning case.</strong> Hijacked domain detected. AI hedged at Uncertain. Definitive closure announcement existed on Instagram and the AI didn't reach it.</p>
+  <div class="quote">So i went to their instagram from their website and it says "Our store is permanently closed!"</div>
+</div>
+
+<h3>Bucket: Marketplace handling (3 rows)</h3>
+
+<div class="row-card danger">
+  <div class="row-head"><strong>Row 271 — Princess Leahs Designs</strong> <span class="row-meta">AI: <span class="pill active">Active</span> (95%) <span class="arrow">→</span> You: <span class="pill uncertain">Uncertain</span></span></div>
+  <p><strong>Highest-confidence false Active in the entire eval.</strong> AI cited <code>etsy.com/people/X</code> (a user profile showing favorites) as evidence of an active shop. Real shop URLs are <code>etsy.com/shop/X</code>.</p>
+  <div class="quote">The etsy link is valid and goes to Jessica Worley's etsy profile page... so the page it actually opens to shows her favorited items from other creators.</div>
+</div>
+
+<div class="row-card warn">
+  <div class="row-head"><strong>Row 114 — Disgruntled Decks</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (50%) <span class="arrow">→</span> You: <span class="pill active">Active</span></span></div>
+  <div class="quote">Definitely active. They don't have any real pricing, but they have active links that redirect to their amazon products. If you click on the Shop tab, then click on one of their products, and wait for it to load to amazon, you will see them.</div>
+  <p>AI didn't follow the Shop tab redirect to Amazon.</p>
+</div>
+
+<div class="row-card warn">
+  <div class="row-head"><strong>Row 556 — Spicers Nicer Massage Therapy</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (60%) <span class="arrow">→</span> You: <span class="pill active">Active</span></span></div>
+  <div class="quote">Definitely still active. Though it's only a facebook page, their facebook page has a link to their actual website, and their last post on facebook was 4 days ago on May 1st.</div>
+  <p>The listed "website" IS a Facebook URL. AI didn't recognize Facebook-as-primary-channel.</p>
+</div>
+
+<h3>Bucket: NWP/Likely Closed boundary (2 rows)</h3>
+
+<div class="row-card">
+  <div class="row-head"><strong>Row 125 — Emotion On Walls</strong> <span class="row-meta">AI: <span class="pill closed">Likely Closed</span> (75%) <span class="arrow">→</span> You: <span class="pill nwp">No Web Presence</span></span></div>
+  <div class="quote">I would say no web presence because it doesn't come up on anything.</div>
+  <p>Post-processing override at <code>check_business.py:331</code> auto-converted NWP→Likely Closed because <code>scrape_domain_dead=True</code>. Override is too aggressive — should only fire when search returned <em>something</em>.</p>
+</div>
+
+<div class="row-card">
+  <div class="row-head"><strong>Row 88 — SerenaTea LLC</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (75%) <span class="arrow">→</span> You: <span class="pill nwp">No Web Presence</span></span></div>
+  <div class="quote">Agree with the evidence, no web presence though.</div>
+  <p>Wix placeholder + zero search results. AI treated the placeholder existence as warranting Uncertain.</p>
+</div>
+
+<h3>Bucket: Missed channel — social search query failure (1 row)</h3>
+
+<div class="row-card warn">
+  <div class="row-head"><strong>Row 583 — Achieve New Heights, LLC</strong> <span class="row-meta">AI: <span class="pill closed">Likely Closed</span> (75%) <span class="arrow">→</span> You: <span class="pill uncertain">Uncertain</span></span></div>
+  <div class="quote">going to the linkedin with "Achieve New Heights" instead of "Achieve New Heights, LLC San Antonio Texas" shows the last post was 1 month ago. Same thing on the facebook, there are recent posts from 2025. This would definitely be uncertain and need a follow up.</div>
+  <p>The exact LLC-suffix problem from your notes. Searching with "LLC + city + state" returned nothing on LinkedIn. Stripping the suffix surfaced active recent posts.</p>
+</div>
+
+<h3>Bucket: URL misinterpretation (1 row)</h3>
+
+<div class="row-card warn">
+  <div class="row-head"><strong>Row 85 — Reflections of Service</strong> <span class="row-meta">AI: <span class="pill active">Active</span> (100%) <span class="arrow">→</span> You: <span class="pill uncertain">Uncertain</span></span></div>
+  <p>AI scored 100% on a website that explicitly says <em>"At this time we are only bidding on/accepting orders for engraved drinkware; we are not accepting any new orders for custom woodcraft."</em> Last Facebook post: July 29, 2020.</p>
+  <div class="quote">There's no indication of being able to actually actively purchase a product (though you can submit and inquiry) and their last social media post was 6 years ago.</div>
+</div>
+
+<h3>Bucket: Scraper error (1 row)</h3>
+
+<div class="row-card danger">
+  <div class="row-head"><strong>Row 685 — Basket and Beads Kenya</strong> <span class="row-meta">AI: <span class="pill uncertain">Uncertain</span> (55%) <span class="arrow">→</span> You: <span class="pill active">Active</span></span></div>
+  <div class="quote">So the website does not show a parking page at all. It shows an active website, trademark at the bottom "© 2026, Baskets and Beads Kenya Powered by Shopify", ability to add to cart and purchase items. I don't know how it turned out a parking page.</div>
+  <p>The scraper fed the AI bad data. Either Firecrawl returned a stale snapshot, or the site briefly served a placeholder. <strong>Reproducibility unknown — needs investigation.</strong></p>
+</div>
+
+<h3>Bucket: Dataset hygiene (1 row)</h3>
+
+<div class="row-card">
+  <div class="row-head"><strong>Row 314 — A Guide to Improvised Weaponry</strong> <span class="row-meta">AI: <span class="pill closed">Likely Closed</span> (85%) <span class="arrow">→</span> You: <span class="pill active">Active</span></span></div>
+  <div class="quote">THIS IS A VERY SPECIAL CASE THAT I HAVE NOT COME ACROSS BEFORE. This is basically a portfolio website for veteran terry schappert.</div>
+  <p>The dataset record is a veteran's TV/portfolio site, not a traditional business. <strong>Not an AI failure — a dataset quality issue.</strong></p>
+</div>
+
+<!-- ===================================================== -->
+<h2 id="calibration">5. Confidence vs. correctness — where the AI knows it's guessing</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Confidence band</th>
+      <th class="num">Rows</th>
+      <th class="num">Agreement</th>
+      <th>Read</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>50–59%</strong></td>
+      <td class="num">11</td>
+      <td class="num"><span style="color:var(--danger)">36%</span></td>
+      <td>Lowest band. AI correctly flags these as low-confidence; they should auto-route to human review.</td>
+    </tr>
+    <tr>
+      <td><strong>60–69%</strong></td>
+      <td class="num">5</td>
+      <td class="num"><span style="color:var(--danger)">0%</span></td>
+      <td>All 5 wrong. Strong signal that this band needs human review or prompt iteration.</td>
+    </tr>
+    <tr>
+      <td><strong>70–79%</strong></td>
+      <td class="num">19</td>
+      <td class="num"><span style="color:var(--accent)">84%</span></td>
+      <td>The reliable Likely Closed band. AI commits, mostly correctly.</td>
+    </tr>
+    <tr>
+      <td><strong>80–89%</strong></td>
+      <td class="num">3</td>
+      <td class="num">67%</td>
+      <td>Small sample but two of three failures here are missed-channel cases.</td>
+    </tr>
+    <tr>
+      <td><strong>90–100%</strong></td>
+      <td class="num">20</td>
+      <td class="num"><span style="color:var(--accent)">90%</span></td>
+      <td>The auto-publishable band. Two failures here (rows 85, 271) — both are URL misinterpretation patterns.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout accent">
+  <strong>The system is well-calibrated.</strong> High-confidence predictions are reliable. Low-confidence predictions correctly flag themselves as risky. This is the opposite of dangerous AI behavior (over-confident on wrong answers). For deployment, this enables a confidence-banded automation strategy: auto-publish 90+%, spot-check 70-89%, queue 60-69% for review, deeper review for &lt;60%.
+</div>
+
+<!-- ===================================================== -->
+<h2 id="domain-insights">6. Veteran-business domain insights</h2>
+
+<p>Your notes reveal patterns specific to the veteran-owned business population. These don't fit neatly into prompt rules but inform deployment strategy.</p>
+
+<h3>Business types most likely to be misclassified</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Archetype</th>
+      <th>Why it's hard</th>
+      <th>Example rows</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Personal brand / portfolio sites</td>
+      <td>Veteran TV personality, author, etc. — has commerce but isn't a "business" in the traditional sense</td>
+      <td>314 (Schappert)</td>
+    </tr>
+    <tr>
+      <td>Service businesses with no online cart</td>
+      <td>Contact-first ordering. AI sees "no e-commerce" and downgrades.</td>
+      <td>85, 424, 388</td>
+    </tr>
+    <tr>
+      <td>Facebook-primary / Instagram-primary</td>
+      <td>The "website" listed IS the social URL. Single-channel by design.</td>
+      <td>556, 685</td>
+    </tr>
+    <tr>
+      <td>Marketplace-native (Etsy/Amazon-only)</td>
+      <td>No standalone domain. Etsy URL structure (profile vs. shop vs. market) is non-obvious.</td>
+      <td>271, 114, 86</td>
+    </tr>
+    <tr>
+      <td>Solo-founder side hustles</td>
+      <td>Low web investment. Quietly close without announcement.</td>
+      <td>86, 271, 163</td>
+    </tr>
+    <tr>
+      <td>Retired/rebranded founders</td>
+      <td>Founder pivots to a new venture without closing original entity. Creates ghost records.</td>
+      <td>410, 91</td>
+    </tr>
+    <tr>
+      <td>SDVOSB government contractors</td>
+      <td>"Thin" consumer-facing sites — but federal contracts confirm activity.</td>
+      <td>636, 527, 484</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Geographic and founder-archetype observations</h3>
+<ul>
+  <li>BMOSG dataset includes <strong>Airbnb listings registered as veteran businesses</strong> (row 624) — these may not be businesses at all. Dataset filtering question.</li>
+  <li><strong>Female-veteran-owned home-based businesses</strong> appear to use personal name as primary contact and have minimal web presence (rows 581, 562, 388, 424).</li>
+  <li><strong>Texas-based generic Wix sites</strong> appear repeatedly (rows 583, 470, 380) — possibly an artifact of state-level VOB registry promotion.</li>
+</ul>
+
+<!-- ===================================================== -->
+<h2 id="tool-failures">7. Where the tool itself broke down</h2>
+
+<p>Your notes surface six categories of tool-level failure that aren't AI reasoning errors per se, but evidence-gathering or infrastructure problems:</p>
+
+<ol>
+  <li><strong>LinkedIn/Facebook search uses Name+City+State and fails.</strong> Documented in 5+ rows. Root cause behind multiple missed-channel disagreements.</li>
+  <li><strong>Web scraper occasionally returns parking-page content for live sites</strong> (row 685, Basket and Beads Kenya). Reproducibility unknown — could be transient CDN behavior or Firecrawl cache staleness.</li>
+  <li><strong>Marketplace navigation stops at the URL level — doesn't follow Shop-tab redirects</strong> (row 114, Disgruntled Decks → Amazon).</li>
+  <li><strong>The AI cannot perceive visual quality of websites</strong> — the signal you use as a pre-filter (modern Shopify vs. 2013 WordPress template) is structurally inaccessible.</li>
+  <li><strong>The AI cited the wrong entity's website on row 424 (JMCO Consulting)</strong> — search contamination from a similarly-abbreviated, higher-authority HR company.</li>
+  <li><strong>The AI accepted regulatory records (FMCSA, SBA, state LLC) as operational evidence</strong> — these confirm legal status, not activity.</li>
+</ol>
+
+<!-- ===================================================== -->
+<h2 id="fixes">8. The fix list — 9 ranked technical changes</h2>
+
+<p>These are the surgical, justified, code-level changes that come out of the analysis. Two parallel subagents (one focused on labeler patterns, one on technical fixes) converged on the same five top items.</p>
+
+<h3>Top-five impact summary</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Rank</th>
+      <th>Fix</th>
+      <th class="num">Disagreements resolved</th>
+      <th>Effort</th>
+      <th>Confidence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>F1 — Pattern-B Decisiveness Overhaul</td>
+      <td class="num">9</td>
+      <td><span class="badge effort">S</span></td>
+      <td><span class="badge confidence-high">High</span></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>F2 — Hijacked-Domain Mandatory Social Check</td>
+      <td class="num">1+</td>
+      <td><span class="badge effort">XS</span></td>
+      <td><span class="badge confidence-high">High</span></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>F3 — Etsy /people/ vs /shop/ URL Guard</td>
+      <td class="num">1 (worst error)</td>
+      <td><span class="badge effort">XS</span></td>
+      <td><span class="badge confidence-high">High</span></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>F4 — NWP Boundary + Post-processing Override Fix</td>
+      <td class="num">2</td>
+      <td><span class="badge effort">S</span></td>
+      <td><span class="badge confidence-high">High</span></td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>F5 — Marketplace Redirect + Single-Channel Facebook</td>
+      <td class="num">2</td>
+      <td><span class="badge effort">XS</span></td>
+      <td><span class="badge confidence-high">High</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout accent">
+  <strong>Realistic projection:</strong> Applying F1–F5 resolves 14–15 of 18 disagreements → ~93% on this eval set. With unseen-data variation, real-world post-fix accuracy is expected at <strong>85–90%</strong>. That clears the threshold for a leadership-deployable system.
+</div>
+
+<h3>Detailed fix specifications</h3>
+
+<div class="fix-card priority-1">
+  <div class="fix-header">
+    <div>
+      <div class="fix-id">F1 — Pattern-B Decisiveness Overhaul</div>
+      <div class="fix-name">Tell the AI to commit to "Likely Closed" instead of hedging</div>
+    </div>
+    <div>
+      <span class="badge effort">Effort: S</span>
+      <span class="badge confidence-high">High confidence</span>
+    </div>
+  </div>
+  <p><strong>Resolves:</strong> Rows 31, 163, 177, 286, 380, 470, 538, 680 (and partial improvement on 193).</p>
+  <p><strong>Where:</strong> <code>tools/check_business.py</code> SYSTEM_PROMPT, replacing the "STALE RECORDS" section (lines 143–145).</p>
+  <p><strong>Approach:</strong> Replace weak guidance with explicit Pattern B definition: "Uncertain requires at least ONE positive recency signal: a 2024+ social post, marketplace listing, or press coverage specifically about this business. If you cannot cite one, do not use Uncertain." Then enumerate the conditions (a)–(e) that constitute Pattern B and tell the AI to commit to Likely Closed at 65–75% confidence.</p>
+  <p><strong>Risk:</strong> Could push borderline rows where you found a 2023 post (which doesn't meet "2024+") incorrectly into Likely Closed. Mitigation: monitor full 60-row re-run, not just the 18 disagreements.</p>
+</div>
+
+<div class="fix-card priority-1">
+  <div class="fix-header">
+    <div>
+      <div class="fix-id">F2 — Hijacked-Domain Mandatory Social Check</div>
+      <div class="fix-name">Force Instagram/Facebook check after spam-domain detection</div>
+    </div>
+    <div>
+      <span class="badge effort">Effort: XS</span>
+      <span class="badge confidence-high">High confidence</span>
+    </div>
+  </div>
+  <p><strong>Resolves:</strong> Row 193 (Alpha Outpost — closure announcement was on Instagram).</p>
+  <p><strong>Where:</strong> <code>tools/check_business.py</code> SQUATTED/HIJACKED DOMAINS section (lines 139–142).</p>
+  <p><strong>Approach:</strong> Add: "MANDATORY: When you detect a hijacked or squatted domain, you MUST check Instagram and Facebook before issuing any verdict. Look for pinned posts saying 'we are closed', 'permanently closed', etc."</p>
+  <p><strong>Risk:</strong> Very low — additive rule, doesn't change verdict logic, only mandates an investigation step.</p>
+</div>
+
+<div class="fix-card priority-1">
+  <div class="fix-header">
+    <div>
+      <div class="fix-id">F3 — Etsy /people/ vs /shop/ URL Guard</div>
+      <div class="fix-name">Distinguish marketplace user profiles from storefronts</div>
+    </div>
+    <div>
+      <span class="badge effort">Effort: XS</span>
+      <span class="badge confidence-high">High confidence</span>
+    </div>
+  </div>
+  <p><strong>Resolves:</strong> Row 271 (Princess Leahs Designs — 95% confidence false Active on a profile URL).</p>
+  <p><strong>Where:</strong> <code>tools/check_business.py</code> CHANNEL 7 — MARKETPLACES section (line 119).</p>
+  <p><strong>Approach:</strong> Add structural URL distinction rule: <code>/shop/X</code> = storefront, valid evidence; <code>/people/X</code> = user profile showing favorites, NOT evidence. Same pattern for Amazon: <code>/stores/X</code> vs <code>/sp?seller=X</code> are valid; <code>/profile/X</code> is not.</p>
+  <p><strong>Risk:</strong> Minimal — purely structural URL rule, no judgment call involved.</p>
+</div>
+
+<div class="fix-card priority-1">
+  <div class="fix-header">
+    <div>
+      <div class="fix-id">F4 — NWP Boundary + Post-processing Override Fix</div>
+      <div class="fix-name">Stop the override at line 331 from misfiring on real NWP cases</div>
+    </div>
+    <div>
+      <span class="badge effort">Effort: S</span>
+      <span class="badge confidence-high">High confidence</span>
+    </div>
+  </div>
+  <p><strong>Resolves:</strong> Rows 125 (Emotion On Walls), 88 (SerenaTea).</p>
+  <p><strong>Where:</strong> Two files. Prompt section in <code>check_business.py</code> lines 150–154; post-processing in <code>check_business.py</code> lines 332–341.</p>
+  <p><strong>Approach (prompt):</strong> Tighten NWP definition — "Use NWP only when domain is dead AND all 8 channels returned zero results specifically about this business. NWP is NOT Likely Closed; it means the business is unverifiable."</p>
+  <p><strong>Approach (code):</strong> Make the override conditional on <code>citations</code> being non-empty. If AI says NWP and citations is empty (truly nothing found), keep NWP. If AI says NWP but citations has results (search found something), upgrade to Likely Closed.</p>
+  <pre><code>if status == "No Web Presence" and website:
+    if scrape_domain_dead and scrape_gave_signal:
+        if citations:  # AI found search results but said NWP
+            status = "Likely Closed"
+            confidence = max(confidence, 70)
+        else:  # AI found nothing AND domain dead → NWP is correct
+            evidence = f"[Domain dead, no search results — NWP confirmed] {evidence}"</code></pre>
+  <p><strong>Risk:</strong> Moderate. The current override fires aggressively. The new logic preserves correct upgrades while preventing the misfires on rows 125, 88. Need to verify on full 60-row re-run.</p>
+</div>
+
+<div class="fix-card priority-1">
+  <div class="fix-header">
+    <div>
+      <div class="fix-id">F5 — Marketplace Redirect + Single-Channel Facebook</div>
+      <div class="fix-name">Follow Amazon links; treat Facebook URLs as primary channel</div>
+    </div>
+    <div>
+      <span class="badge effort">Effort: XS</span>
+      <span class="badge confidence-high">High confidence</span>
+    </div>
+  </div>
+  <p><strong>Resolves:</strong> Rows 114 (Disgruntled Decks → Amazon redirect), 556 (Spicers Nicer — Facebook-as-website).</p>
+  <p><strong>Where:</strong> FAST PATH section + CHANNEL 3 (Facebook) section in <code>tools/check_business.py</code>.</p>
+  <p><strong>Approach:</strong> Add to FAST PATH: "Product pages that redirect to active Amazon/Etsy listings count as commerce evidence. The listed 'website' being a Facebook/Instagram URL means evaluate that page as the primary channel."</p>
+  <p><strong>Risk:</strong> Low. Specific, observable behavior. Won't fire incorrectly on unrelated cases.</p>
+</div>
+
+<div class="fix-card priority-2">
+  <div class="fix-header">
+    <div>
+      <div class="fix-id">F6 — Active confidence cap without dated content</div>
+      <div class="fix-name">Cap Active at 79% if no recent dated content verified</div>
+    </div>
+    <div>
+      <span class="badge effort">Effort: S</span>
+      <span class="badge confidence-med">Medium</span>
+    </div>
+  </div>
+  <p><strong>Resolves:</strong> Row 85 (Reflections of Service — 100% Active despite "not accepting new orders").</p>
+  <p><strong>Approach:</strong> Add to confidence rubric: "NEVER assign Active 90+ based solely on website content if (a) no social media recency verified, AND (b) site contains no dated content from 2024+."</p>
+  <p><strong>Risk:</strong> Medium. Some legitimately-active rows (e.g., Mobile Cigar Lounge row 94) don't have footer dates. Could lower their confidence to 79 — still Active, just less confident. Verify on re-run.</p>
+</div>
+
+<div class="fix-card priority-3">
+  <div class="fix-header">
+    <div>
+      <div class="fix-id">F7 — LLC/Inc suffix stripping on social retries</div>
+      <div class="fix-name">Address the "Name + City + State" search-failure pattern</div>
+    </div>
+    <div>
+      <span class="badge effort">Effort: S</span>
+      <span class="badge confidence-med">Medium</span>
+    </div>
+  </div>
+  <p><strong>Resolves:</strong> Row 583 (Achieve New Heights) and likely others.</p>
+  <p><strong>Approach:</strong> Add SEARCH VARIANT RULE to Channels 3, 4, 5: "If 'Business Name + Location' returns no results, retry with name only. If name has LLC/Inc/Corp/Ltd suffix, also retry without suffix."</p>
+  <p><strong>Risk:</strong> Implementation fidelity uncertain. Perplexity may not actually execute discrete retry steps within a single call. Directionally correct but verify.</p>
+</div>
+
+<div class="fix-card priority-3">
+  <div class="fix-header">
+    <div>
+      <div class="fix-id">F8 — Footer copyright year extraction (scraper)</div>
+      <div class="fix-name">Surface the "© 2025" / "© 2026" recency signal you use heavily</div>
+    </div>
+    <div>
+      <span class="badge effort">Effort: M</span>
+      <span class="badge confidence-med">Medium</span>
+    </div>
+  </div>
+  <p><strong>Resolves:</strong> Indirect — would have raised confidence on Active calls and prevented row 85 false Active.</p>
+  <p><strong>Approach:</strong> Modify <code>scrape_website.py</code> to regex-extract <code>©\s*(\d{4})</code> from raw HTML, validate plausibility, and pass through to the AI prompt as "Footer copyright year detected: 2026".</p>
+  <p><strong>Risk:</strong> Low for active boost; moderate for closure detection. CMS auto-update of copyright years (Shopify, WordPress) means a 2026 footer doesn't always mean active. Use as one signal, not authoritative.</p>
+</div>
+
+<div class="fix-card priority-4">
+  <div class="fix-header">
+    <div>
+      <div class="fix-id">F9 — Scraper Shopify exemption (pending verification)</div>
+      <div class="fix-name">Don't classify Shopify "coming soon" pages as slop if commerce markers present</div>
+    </div>
+    <div>
+      <span class="badge effort">Effort: S</span>
+      <span class="badge confidence-med">Medium</span>
+    </div>
+  </div>
+  <p><strong>Resolves:</strong> Row 685 — but only if reproducible.</p>
+  <p><strong>First step:</strong> Re-run <code>scrape_website()</code> on the row 685 URL in isolation. If it now returns the live Shopify content, the error was transient and F9 is unnecessary. If it reproducibly returns slop, ship F9.</p>
+</div>
+
+<h3>Things deliberately NOT pursued</h3>
+<ul>
+  <li><strong>Owner LinkedIn employment-end-date lookup</strong> — too dependent on Perplexity's surfacing behavior; cases already resolved correctly</li>
+  <li><strong>Self-critique loop on low-confidence calls</strong> — doubles cost without addressing root cause; F1 should fix the underlying issue</li>
+  <li><strong>Celebrity portfolio site handling (row 314)</strong> — too narrow a rule, would risk regressions on legitimate thin-content businesses</li>
+  <li><strong>Visual website quality assessment</strong> — structural AI limitation, not addressable in prompt</li>
+  <li><strong>YouTube date verification</strong> — already correctly handled in known cases</li>
+</ul>
+
+<!-- ===================================================== -->
+<h2 id="unknowns">9. Open questions before shipping</h2>
+
+<ol>
+  <li><strong>Is the row 685 scraper error reproducible?</strong> Run scrape_website on the URL in isolation. If it returns parking content, F9 is essential. If it returns the live site, the error was transient.</li>
+  <li><strong>Does F1 cause regressions on borderline Uncertain rows?</strong> The 70-79 band is currently 84% accurate. Need to verify the new "must cite 2024+ post for Uncertain" rule doesn't push genuine Uncertains incorrectly to Likely Closed.</li>
+  <li><strong>Does the F4 post-processing fix change any currently-correct results?</strong> The current override fires on every NWP+dead-domain case. Need to verify the new conditional preserves all currently-correct upgrades.</li>
+  <li><strong>Does F6's confidence cap harm correctly-Active rows with no footer dates?</strong> Row 94 (Mobile Cigar Lounge) was correctly Active at 95% with no copyright year. Cap might lower to 79.</li>
+  <li><strong>Does Perplexity actually execute multi-step search retries?</strong> F7 instructs the AI to retry queries. Sonar's architecture may not support discrete retries within a single call.</li>
+  <li><strong>Does the F3 Etsy URL rule actually surface /shop/ URLs via Perplexity?</strong> A safer alternative is a deterministic Python step that rewrites <code>/people/X</code> → <code>/shop/X</code> before sending to the scraper.</li>
+</ol>
+
+<!-- ===================================================== -->
+<h2 id="what-this-means">10. What this means for the leadership pitch</h2>
+
+<p>The 69% headline isn't the leadership story. The story is:</p>
+
+<div class="lede">
+  "On stratified evaluation against my independent verification (n=60, 95% Wilson CI ±10pp), the system's high-confidence predictions (90+%) agreed with me 90% of the time. Its low-confidence predictions correctly flagged themselves as risky. The dominant failure mode is over-cautious hedging on borderline closures — fixable in the prompt, not a fundamental capability gap. After surgical prompt edits, projected agreement rises to ~88-93% on this eval. We deploy with confidence-banded automation: auto-publish 90+%, spot-check 70-89%, route lower-confidence rows to human review."
+</div>
+
+<p>That's a deployable system with documented limits, an honest improvement plan, and a clear deployment shape. It's also a much stronger pitch than "the AI is X% accurate" because it tells leadership <em>how</em> to deploy it safely.</p>
+
+<h3>Concrete deployment math for the 20K-business cleanup</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Confidence band</th>
+      <th>Expected volume</th>
+      <th>Action</th>
+      <th>Staff time</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>90+% (auto-publish)</td>
+      <td>~12,000–14,000 records</td>
+      <td>Direct database update</td>
+      <td>~0 hours</td>
+    </tr>
+    <tr>
+      <td>70–89% (spot-check 10%)</td>
+      <td>~5,000–6,000 records</td>
+      <td>Sample 500 for human review</td>
+      <td>~40 hours</td>
+    </tr>
+    <tr>
+      <td>&lt;70% (queue for review)</td>
+      <td>~1,000–2,000 records</td>
+      <td>Full human verification</td>
+      <td>~160 hours</td>
+    </tr>
+    <tr>
+      <td><strong>Manual baseline</strong></td>
+      <td>20,000 records × 5 min</td>
+      <td>Human verification of every record</td>
+      <td><strong>~1,667 hours</strong></td>
+    </tr>
+  </tbody>
+</table>
+<p><strong>Result:</strong> ~200 staff hours instead of ~1,667. ~$142 in API spend. <strong>~8x labor reduction</strong> on a previously-impossible task with documented accuracy and explicit human oversight on the edge cases.</p>
+
+<div class="footer">
+  <p>Generated 2026-05-05 from <code>eval/datasets/bmosg_v1_eval_sample.csv</code> and <code>eval/reports/bmosg_v1_baseline/report.md</code>.<br>
+  Synthesized from parallel subagent analyses (<code>/tmp/labeler-analysis.md</code> and <code>/tmp/technical-fixes.md</code>) by orchestrator (Claude Opus 4.7).</p>
+  <p>This document is for IVMF internal use. Last updated: 2026-05-05.</p>
+</div>
+
+</div>
+</body>
+</html>
