@@ -61,6 +61,8 @@ FAST PATH — use this if the website content provided shows a real, currently o
        • Blog or news posts from 2023 or later
        • Copyright year 2023–2026 in the footer alongside substantive content
        • An informational site for a business that clearly sells in person, at markets, or through distributors — not every business sells online, and that is fine
+       • Product pages on the business's website redirect to an active Amazon listing, active Etsy /shop/ URL, or other marketplace with current stock — many veteran businesses use their website as a portfolio and the marketplace as the actual storefront. Follow the commerce link before judging.
+       • The listed "website" URL is itself a Facebook, Instagram, or LinkedIn page (i.e., the URL contains facebook.com, instagram.com, or linkedin.com) — evaluate it as the PRIMARY channel, not a social-media supplement. If the most recent post or update is within 12 months and shows business activity, this is Active.
 
   Does NOT qualify — proceed to Full Investigation:
        • Website loads but all content and dates are from 2021 or earlier
@@ -94,6 +96,8 @@ Search Facebook for a business page named "[BUSINESS NAME]".
   • Posts or customer interactions from 2023–2026 = Active.
   • Page exists but last post is 2021 or earlier = Uncertain signal.
   • No page found = note it and continue.
+  • IMPORTANT: If the listed website URL in the dataset IS a Facebook page URL (e.g., starts with facebook.com), evaluate that page as the primary evidence source, not as a social media supplement. The absence of a separate domain website is not a negative signal — this is a Facebook-native business.
+  • When viewing a Facebook business page, check the "Posts" tab specifically for recent activity dates, not just whether the page exists. A page with no posts in 2 years is a different signal from a page with a post 4 days ago.
 
 CHANNEL 4 — INSTAGRAM
 Search Instagram for "[BUSINESS NAME]".
@@ -117,6 +121,16 @@ Search Amazon, Etsy, specialty food retailers, or other relevant platforms for "
   • Products listed and in stock = Active signal.
   • Products listed as unavailable or removed = weak closure signal.
 
+  MARKETPLACE URL PATTERNS — know the difference between profile pages and storefronts:
+    • etsy.com/shop/X → this IS a storefront. Valid evidence of business presence.
+    • etsy.com/people/X → this is a USER PROFILE showing favorited items from OTHER sellers. NOT a storefront. Do not cite this as evidence of an active business.
+    • etsy.com/market/X → this is a category/search results page. NOT a specific business's shop.
+    • amazon.com/stores/X → brand storefront. Valid if products are in stock.
+    • amazon.com/sp?seller=X or amazon.com/gp/aag/main?seller=X → seller profile page. Valid if reviews are recent.
+    • amazon.com/profile/X → user profile, NOT a seller storefront.
+  When you encounter an Etsy /people/ URL: search Etsy directly for the business name to find their actual /shop/ URL. If no shop exists, treat the people-page URL as missing evidence — do not score Active solely on a profile page.
+  When following a "Shop" link on a business website that redirects to a marketplace: the marketplace listing IS commerce evidence. Many veteran businesses use their website as a portfolio and the marketplace as the actual storefront. Follow the redirect.
+
 CHANNEL 8 — INDUSTRY DIRECTORIES & MARKETPLACES
 Search BBB (bbb.org), Yelp, industry-specific directories, or trade association member lists for "[BUSINESS NAME]".
   • Active listing with recent activity = supportive Active signal.
@@ -136,21 +150,49 @@ CRITICAL RULES:
 - Results from before 2022 are not reliable evidence of current operating status.
 - "Likely Closed" requires multiple signals, not just one. "No Web Presence" requires every channel to come up empty.
 
+PATTERN B — WHEN TO COMMIT TO "Likely Closed" (not "Uncertain"):
+
+"Uncertain" requires at least ONE positive recency signal: a social post, marketplace listing, current Google Business Profile activity, or press coverage from 2024 or later that is SPECIFICALLY about this business. If you cannot cite one, do not use Uncertain — commit to a more decisive verdict.
+
+When you have ALL of the following, commit to "Likely Closed" at 65–80% confidence:
+  (a) The website is non-functional: 404, DNS failure, domain-for-sale parking page, empty Wix/Weebly/Square/Squarespace placeholder with no business-specific content, or "coming soon / opening soon" page with no evidence the site ever launched.
+  (b) No Google Business Profile showing as open with reviews from 2024 or later, or Maps shows "Permanently closed".
+  (c) No Facebook or Instagram post from 2024 or later specifically from this business.
+  (d) No current marketplace storefront with in-stock products (for product businesses).
+  (e) The only results are: state incorporation records, old directory listings (ZoomInfo, Manta, FMCSA, Infogroup, OpenFOS, BBB without recent reviews), or press/media articles from before 2023.
+
+If (a)–(e) all apply → "Likely Closed" at 65–75%. This is Pattern B. Do NOT hedge to "Uncertain".
+
+ENTITY EXISTENCE vs. OPERATIONAL STATUS — important distinction:
+- Directory listings (Manta, ZoomInfo, OpenFOS, Infogroup), state LLC/incorporation records, FMCSA DOT numbers, SBA certifications, and similar registry entries CONFIRM that the business EXISTED as a legal entity. They are valuable evidence that this is a real business (not a name collision or ghost record), and they remain useful as supporting evidence.
+- HOWEVER: these signals do NOT, by themselves, confirm CURRENT OPERATION. FMCSA DOT numbers persist for defunct carriers indefinitely. State LLC records stay registered for years after closure. SBA certifications expire on a schedule, not based on activity. Auto-scraped directory listings (Manta, ZoomInfo) capture historical state.
+- Use them this way: when paired with at least one recency signal from another channel (2024+ social post, current marketplace listing, recent press, owner actively promoting), they strengthen an Active or Uncertain verdict. When alone, with no corroborating recency from any other channel, they are NOT sufficient to hedge to Uncertain over Likely Closed.
+- Rule of thumb: directory + regulatory listings answer "did this exist?" — they do not answer "is this operating today?" For the latter, find recency from social, maps, marketplace, or press.
+
+"Coming soon" / "Opening soon" sites: If the site has been in "coming soon" status for 12+ months with no launch evidence and no active social presence, and the business appeared in a directory 12+ months ago, it almost certainly never launched. Classify as "Likely Closed".
+
+Footer copyright year: When scraped page text contains "© [year]" or "Copyright [year]" near the footer, treat the year as a recency signal:
+- Year is current year (2025–2026) AND substantive page content exists → supports Active.
+- Year is 2023 or older AND no other recent signals → supports Likely Closed.
+- Year is missing entirely → neutral; rely on other signals.
+
 SQUATTED / HIJACKED DOMAINS:
 - If a domain now hosts gambling, adult content, spam, generic blog content, or a parking page clearly unrelated to the original business — treat it as a dead domain. It counts as one closure signal.
-- Squatted domain + no social media activity + no Google Maps listing + no other channel hits = "Likely Closed". Do NOT call this "Uncertain" just because you cannot find an explicit closure announcement.
-
-STALE RECORDS WITH NO CORROBORATION:
-- If the only evidence you can find is a state incorporation record or a basic directory listing (Manta, OpenFOS, Infogroup, etc.) with no activity after 2021, and no social media, no maps, no press, no owner activity — that is NOT enough to call a business "Uncertain". Call it "Likely Closed" (multiple stale signals with nothing recent = closure pattern).
-- Old incorporation records alone are not evidence of current operation.
+- MANDATORY: When you detect a hijacked or squatted domain, you MUST check Instagram and Facebook before issuing any verdict. This is non-negotiable. Businesses frequently post closure announcements on social media when their domain lapses. Look for pinned posts saying "we are closed", "permanently closed", "our store is closed", "thank you for X years", or similar.
+- If you find a social closure announcement → "Likely Closed" at 85–95% confidence (this is the strongest possible closure signal short of a death certificate).
+- Squatted domain + social channels checked + no posts since 2023 + no Google Maps listing + no other channel hits = "Likely Closed" at 70–80%. Do NOT call this "Uncertain".
+- Squatted domain + active 2024+ social posts = investigate further (may be Uncertain if status unclear, or Active if business is clearly operating through social alone — see "single-channel businesses" in FAST PATH).
 
 EMPTY WEBSITE BUILDERS (Square, Weebly, Wix placeholders):
-- A generic landing page on Square, Weebly, or Wix with no business-specific content (no products, no services, no contact info specific to this business) is NOT a real web presence. Treat it the same as a dead domain.
+- A generic landing page on Square, Weebly, or Wix with no business-specific content (no products, no services, no contact info specific to this business) is NOT a real web presence. Treat it the same as a dead domain — Pattern B rules apply.
 
 NO WEB PRESENCE — use it precisely:
-- Only use "No Web Presence" if you found NOTHING specific to this business across all 8 channels — not even an old directory listing, not even an owner social profile.
-- If you found any result that specifically names this business (even an old one), use "Uncertain" or "Likely Closed" instead.
-- A personal Whitepages or RocketReach profile for an individual is NOT a business web presence.
+- Use "No Web Presence" ONLY when: the domain is dead (or no website was listed) AND all 8 channels returned zero results specifically about this business — not even an old directory listing, not even a social profile, not even a press mention with this business name.
+- "No Web Presence" is NOT the same as "Likely Closed". NWP means the business is unverifiable — there is simply nothing online to evaluate. The business may be closed, may operate offline, may never have had a presence.
+- If ANY search returned a result specifically naming this business (old directory listing, dormant social profile, news mention, founder LinkedIn referencing the business), use "Likely Closed" (stale signals support closure) or "Uncertain" (some recent activity exists) instead.
+- Generic placeholder pages (Wix, Weebly, Square "coming soon" templates with zero business-specific content, no products, no owner name, no contact info specific to this business) are NOT a web presence. If this is the only thing you found and search returns nothing for this business → "No Web Presence".
+- A personal Whitepages or RocketReach profile for an INDIVIDUAL is NOT a business web presence.
+- When in doubt between NWP and Likely Closed: if you can cite at least one result that specifically names this business, it is Likely Closed. If you cannot cite any result about this business specifically, it is NWP.
 
 ---
 
@@ -324,21 +366,36 @@ def check_business(
             status     = parsed.status
             confidence = parsed.confidence
 
-            # Post-process No Web Presence based on what the scraper found:
-            #   - Domain confirmed dead (parking/404/DNS) → Likely Closed
-            #   - Scrape had real content but Perplexity still said NWP → Uncertain (mismatch)
-            #   - Scrape had no signal at all → Uncertain (couldn't confirm, flag for review)
+            # Post-process No Web Presence based on what the scraper found.
+            # Decision matrix:
+            #   - Scrape confirmed dead domain + Perplexity found search results
+            #     (citations non-empty) → upgrade to Likely Closed (the business
+            #     existed somewhere but is now off the web)
+            #   - Scrape confirmed dead domain + Perplexity found NOTHING
+            #     (citations empty) → keep NWP, the AI's verdict is correct;
+            #     this is genuinely unverifiable
+            #   - Scrape had real content but Perplexity said NWP → Uncertain
+            #     (mismatch worth flagging for human review)
+            #   - Scrape had no signal at all → Uncertain (couldn't confirm,
+            #     flag for review)
             evidence = parsed.evidence
             if status == "No Web Presence" and website:
-                if scrape_domain_dead:
-                    status     = "Likely Closed"
-                    confidence = max(confidence, 70)
-                    evidence   = f"[Domain confirmed dead via direct check] {evidence}"
-                else:
+                if scrape_domain_dead and scrape_gave_signal:
+                    if citations:
+                        # AI found search results but said NWP — likely a
+                        # conservative AI call on a genuinely closed business.
+                        status     = "Likely Closed"
+                        confidence = max(confidence, 70)
+                        evidence   = f"[Domain confirmed dead via direct check] {evidence}"
+                    else:
+                        # AI found nothing AND domain is dead → NWP is correct.
+                        # Keep it; flag for human review since URL was on file.
+                        evidence = f"[Domain dead, no search results found — NWP confirmed] {evidence}"
+                elif not scrape_gave_signal:
+                    # No URL signal at all (URL present but scraper couldn't connect).
                     status     = "Uncertain"
                     confidence = max(confidence, 40)
-                    if not scrape_gave_signal:
-                        evidence = f"[URL on file but could not confirm content — flagged for review] {evidence}"
+                    evidence   = f"[URL on file but could not confirm content — flagged for review] {evidence}"
             if citations:
                 sources = ", ".join(citations[:3])  # cap at 3 URLs
                 evidence = f"{evidence} | Sources: {sources}"
