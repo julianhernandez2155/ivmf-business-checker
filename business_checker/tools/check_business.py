@@ -150,31 +150,9 @@ CRITICAL RULES:
 - Results from before 2022 are not reliable evidence of current operating status.
 - "Likely Closed" requires multiple signals, not just one. "No Web Presence" requires every channel to come up empty.
 
-PATTERN B — WHEN TO COMMIT TO "Likely Closed" (not "Uncertain"):
-
-"Uncertain" requires at least ONE positive recency signal: a social post, marketplace listing, current Google Business Profile activity, or press coverage from 2024 or later that is SPECIFICALLY about this business. If you cannot cite one, do not use Uncertain — commit to a more decisive verdict.
-
-When you have ALL of the following, commit to "Likely Closed" at 65–80% confidence:
-  (a) The website is non-functional: 404, DNS failure, domain-for-sale parking page, empty Wix/Weebly/Square/Squarespace placeholder with no business-specific content, or "coming soon / opening soon" page with no evidence the site ever launched.
-  (b) No Google Business Profile showing as open with reviews from 2024 or later, or Maps shows "Permanently closed".
-  (c) No Facebook or Instagram post from 2024 or later specifically from this business.
-  (d) No current marketplace storefront with in-stock products (for product businesses).
-  (e) The only results are: state incorporation records, old directory listings (ZoomInfo, Manta, FMCSA, Infogroup, OpenFOS, BBB without recent reviews), or press/media articles from before 2023.
-
-If (a)–(e) all apply → "Likely Closed" at 65–75%. This is Pattern B. Do NOT hedge to "Uncertain".
-
-ENTITY EXISTENCE vs. OPERATIONAL STATUS — important distinction:
-- Directory listings (Manta, ZoomInfo, OpenFOS, Infogroup), state LLC/incorporation records, FMCSA DOT numbers, SBA certifications, and similar registry entries CONFIRM that the business EXISTED as a legal entity. They are valuable evidence that this is a real business (not a name collision or ghost record), and they remain useful as supporting evidence.
-- HOWEVER: these signals do NOT, by themselves, confirm CURRENT OPERATION. FMCSA DOT numbers persist for defunct carriers indefinitely. State LLC records stay registered for years after closure. SBA certifications expire on a schedule, not based on activity. Auto-scraped directory listings (Manta, ZoomInfo) capture historical state.
-- Use them this way: when paired with at least one recency signal from another channel (2024+ social post, current marketplace listing, recent press, owner actively promoting), they strengthen an Active or Uncertain verdict. When alone, with no corroborating recency from any other channel, they are NOT sufficient to hedge to Uncertain over Likely Closed.
-- Rule of thumb: directory + regulatory listings answer "did this exist?" — they do not answer "is this operating today?" For the latter, find recency from social, maps, marketplace, or press.
-
-"Coming soon" / "Opening soon" sites: If the site has been in "coming soon" status for 12+ months with no launch evidence and no active social presence, and the business appeared in a directory 12+ months ago, it almost certainly never launched. Classify as "Likely Closed".
-
-Footer copyright year: When scraped page text contains "© [year]" or "Copyright [year]" near the footer, treat the year as a recency signal:
-- Year is current year (2025–2026) AND substantive page content exists → supports Active.
-- Year is 2023 or older AND no other recent signals → supports Likely Closed.
-- Year is missing entirely → neutral; rely on other signals.
+STALE RECORDS WITH NO CORROBORATION:
+- If the only evidence you can find is a state incorporation record or a basic directory listing (Manta, OpenFOS, Infogroup, etc.) with no activity after 2021, and no social media, no maps, no press, no owner activity — that is NOT enough to call a business "Uncertain". Call it "Likely Closed" (multiple stale signals with nothing recent = closure pattern).
+- Old incorporation records alone are not evidence of current operation.
 
 SQUATTED / HIJACKED DOMAINS:
 - If a domain now hosts gambling, adult content, spam, generic blog content, or a parking page clearly unrelated to the original business — treat it as a dead domain. It counts as one closure signal.
@@ -184,7 +162,7 @@ SQUATTED / HIJACKED DOMAINS:
 - Squatted domain + active 2024+ social posts = investigate further (may be Uncertain if status unclear, or Active if business is clearly operating through social alone — see "single-channel businesses" in FAST PATH).
 
 EMPTY WEBSITE BUILDERS (Square, Weebly, Wix placeholders):
-- A generic landing page on Square, Weebly, or Wix with no business-specific content (no products, no services, no contact info specific to this business) is NOT a real web presence. Treat it the same as a dead domain — Pattern B rules apply.
+- A generic landing page on Square, Weebly, or Wix with no business-specific content (no products, no services, no contact info specific to this business) is NOT a real web presence. Treat it the same as a dead domain.
 
 NO WEB PRESENCE — use it precisely:
 - Use "No Web Presence" ONLY when: the domain is dead (or no website was listed) AND all 8 channels returned zero results specifically about this business — not even an old directory listing, not even a social profile, not even a press mention with this business name.
