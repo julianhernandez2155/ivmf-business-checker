@@ -13,6 +13,7 @@ import json
 import os
 import time
 from typing import Literal
+from urllib.parse import urlparse
 
 import requests
 from pydantic import BaseModel, ValidationError
@@ -35,6 +36,124 @@ def _calculate_cost(usage: dict) -> float:
     """Compute cost for one API call from the usage block Perplexity returns."""
     tokens = usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
     return _COST_PER_REQUEST + (tokens * _COST_PER_1M_TOKENS / 1_000_000)
+
+
+# ── Aggregator detection (Pattern B post-processing) ──────────────────────────
+#
+# Data aggregators auto-scrape business records and persist them indefinitely
+# after a business closes. When the AI's only citations are aggregator URLs and
+# the business's domain is dead, hedging to "Uncertain" is wrong — it should
+# commit to "Likely Closed". This list is matched on hostname + path-prefix.
+
+AGGREGATOR_DOMAINS: tuple[str, ...] = (
+    # B2B contact / firmographic aggregators
+    "zoominfo.com", "manta.com", "rocketreach.co", "experience.com",
+    "infogroup.com", "openfos.com", "ailoq.com", "salary.com",
+    "dnb.com", "bizapedia.com", "buzzfile.com", "corporationwiki.com",
+    "opencorporates.com", "yellowpages.com",
+    # Trucking / DOT carriers
+    "fmcsa.dot.gov", "safer.fmcsa.dot.gov", "otrucking.com",
+    "greatguysmove.com",
+    # Vertical / niche directories surfacing in Pattern B disagreements
+    "thcanearby.com", "cannabisshop", "swfinstitute.org",
+    "fedlinks.com", "eventeny.com", "alignusapp.com",
+    # Hiring boards (record-of-existence only)
+    "indeed.com/cmp", "glassdoor.com/Overview",
+    # Generic state / archive crawlers
+    "bizstanding.com", "chamberofcommerce.com",
+)
+
+# Override only fires when AI hedged below this confidence — never overrides a
+# confident Uncertain (which is rare but should be respected).
+AGGREGATOR_OVERRIDE_MAX_CONFIDENCE = 70
+
+
+def _citation_host_path(url: str) -> str:
+    """Return lowercased 'host/path' for substring matching against aggregators."""
+    if not url:
+        return ""
+    try:
+        parsed = urlparse(url.strip())
+        host = (parsed.hostname or "").lower()
+        if host.startswith("www."):
+            host = host[4:]
+        return f"{host}{parsed.path}".lower()
+    except Exception:
+        return url.lower()
+
+
+def _is_aggregator_url(url: str) -> bool:
+    """True if the URL matches a known data-aggregator host or path prefix."""
+    target = _citation_host_path(url)
+    if not target:
+        return False
+    return any(marker in target for marker in AGGREGATOR_DOMAINS)
+
+
+def _all_citations_are_aggregators(
+    citations: list[str], own_website: str = ""
+) -> bool:
+    """True iff every non-self citation matches an aggregator and at least
+    one such citation exists.
+
+    Self-citations (the business's own dead domain) are filtered out before
+    evaluation — a citation list of just the dead website is not evidence
+    of aggregator-only presence.
+    """
+    own_host = ""
+    if own_website:
+        try:
+            own_host = (urlparse(own_website).hostname or "").lower()
+            if own_host.startswith("www."):
+                own_host = own_host[4:]
+        except Exception:
+            own_host = ""
+
+    external = []
+    for url in citations:
+        host = _citation_host_path(url).split("/", 1)[0]
+        if own_host and host == own_host:
+            continue  # skip self-citations
+        external.append(url)
+
+    if not external:
+        return False
+    return all(_is_aggregator_url(u) for u in external)
+
+
+# ── Triage flag (production calibration thresholds) ───────────────────────────
+#
+# Thresholds derived from bmosg_v1 baseline calibration (n=58 scoreable):
+#   90–100% confidence band: 90% agreement (auto-trust)
+#   80–89% band:              67% agreement (auto-trust if status == Active)
+#   70–79% band:              84% agreement (mixed; review minority classes)
+#   60–69% band:               0% agreement (always review)
+#   50–59% band:              36% agreement (always review)
+# Plus: "Uncertain" precision was 35%, "No Web Presence" was 0% — always review.
+
+TRIAGE_LOW_CONFIDENCE_FLOOR    = 70
+TRIAGE_CLOSURE_AUTOTRUST_FLOOR = 80
+TRIAGE_ALWAYS_REVIEW_STATUSES  = frozenset({"Uncertain", "No Web Presence"})
+
+
+def _compute_triage(status: str, confidence: int) -> tuple[bool, str | None]:
+    """Decide whether a verdict should be flagged for human review.
+
+    Returns (requires_review, review_reason).
+    """
+    if status in TRIAGE_ALWAYS_REVIEW_STATUSES:
+        return True, f"Status '{status}' has low historical precision; verify manually."
+    if confidence < TRIAGE_LOW_CONFIDENCE_FLOOR:
+        return True, (
+            f"Confidence {confidence}% below auto-trust floor "
+            f"({TRIAGE_LOW_CONFIDENCE_FLOOR}%)."
+        )
+    if status == "Likely Closed" and confidence < TRIAGE_CLOSURE_AUTOTRUST_FLOOR:
+        return True, (
+            f"'Likely Closed' below {TRIAGE_CLOSURE_AUTOTRUST_FLOOR}% — "
+            f"confirm before outreach."
+        )
+    return False, None
 
 
 # ── Structured output schema ──────────────────────────────────────────────────
@@ -61,8 +180,6 @@ FAST PATH — use this if the website content provided shows a real, currently o
        • Blog or news posts from 2023 or later
        • Copyright year 2023–2026 in the footer alongside substantive content
        • An informational site for a business that clearly sells in person, at markets, or through distributors — not every business sells online, and that is fine
-       • Product pages on the business's website redirect to an active Amazon listing, active Etsy /shop/ URL, or other marketplace with current stock — many veteran businesses use their website as a portfolio and the marketplace as the actual storefront. Follow the commerce link before judging.
-       • The listed "website" URL is itself a Facebook, Instagram, or LinkedIn page (i.e., the URL contains facebook.com, instagram.com, or linkedin.com) — evaluate it as the PRIMARY channel, not a social-media supplement. If the most recent post or update is within 12 months and shows business activity, this is Active.
 
   Does NOT qualify — proceed to Full Investigation:
        • Website loads but all content and dates are from 2021 or earlier
@@ -96,8 +213,6 @@ Search Facebook for a business page named "[BUSINESS NAME]".
   • Posts or customer interactions from 2023–2026 = Active.
   • Page exists but last post is 2021 or earlier = Uncertain signal.
   • No page found = note it and continue.
-  • IMPORTANT: If the listed website URL in the dataset IS a Facebook page URL (e.g., starts with facebook.com), evaluate that page as the primary evidence source, not as a social media supplement. The absence of a separate domain website is not a negative signal — this is a Facebook-native business.
-  • When viewing a Facebook business page, check the "Posts" tab specifically for recent activity dates, not just whether the page exists. A page with no posts in 2 years is a different signal from a page with a post 4 days ago.
 
 CHANNEL 4 — INSTAGRAM
 Search Instagram for "[BUSINESS NAME]".
@@ -121,16 +236,6 @@ Search Amazon, Etsy, specialty food retailers, or other relevant platforms for "
   • Products listed and in stock = Active signal.
   • Products listed as unavailable or removed = weak closure signal.
 
-  MARKETPLACE URL PATTERNS — know the difference between profile pages and storefronts:
-    • etsy.com/shop/X → this IS a storefront. Valid evidence of business presence.
-    • etsy.com/people/X → this is a USER PROFILE showing favorited items from OTHER sellers. NOT a storefront. Do not cite this as evidence of an active business.
-    • etsy.com/market/X → this is a category/search results page. NOT a specific business's shop.
-    • amazon.com/stores/X → brand storefront. Valid if products are in stock.
-    • amazon.com/sp?seller=X or amazon.com/gp/aag/main?seller=X → seller profile page. Valid if reviews are recent.
-    • amazon.com/profile/X → user profile, NOT a seller storefront.
-  When you encounter an Etsy /people/ URL: search Etsy directly for the business name to find their actual /shop/ URL. If no shop exists, treat the people-page URL as missing evidence — do not score Active solely on a profile page.
-  When following a "Shop" link on a business website that redirects to a marketplace: the marketplace listing IS commerce evidence. Many veteran businesses use their website as a portfolio and the marketplace as the actual storefront. Follow the redirect.
-
 CHANNEL 8 — INDUSTRY DIRECTORIES & MARKETPLACES
 Search BBB (bbb.org), Yelp, industry-specific directories, or trade association member lists for "[BUSINESS NAME]".
   • Active listing with recent activity = supportive Active signal.
@@ -150,27 +255,21 @@ CRITICAL RULES:
 - Results from before 2022 are not reliable evidence of current operating status.
 - "Likely Closed" requires multiple signals, not just one. "No Web Presence" requires every channel to come up empty.
 
+SQUATTED / HIJACKED DOMAINS:
+- If a domain now hosts gambling, adult content, spam, generic blog content, or a parking page clearly unrelated to the original business — treat it as a dead domain. It counts as one closure signal.
+- Squatted domain + no social media activity + no Google Maps listing + no other channel hits = "Likely Closed". Do NOT call this "Uncertain" just because you cannot find an explicit closure announcement.
+
 STALE RECORDS WITH NO CORROBORATION:
 - If the only evidence you can find is a state incorporation record or a basic directory listing (Manta, OpenFOS, Infogroup, etc.) with no activity after 2021, and no social media, no maps, no press, no owner activity — that is NOT enough to call a business "Uncertain". Call it "Likely Closed" (multiple stale signals with nothing recent = closure pattern).
 - Old incorporation records alone are not evidence of current operation.
-
-SQUATTED / HIJACKED DOMAINS:
-- If a domain now hosts gambling, adult content, spam, generic blog content, or a parking page clearly unrelated to the original business — treat it as a dead domain. It counts as one closure signal.
-- MANDATORY: When you detect a hijacked or squatted domain, you MUST check Instagram and Facebook before issuing any verdict. This is non-negotiable. Businesses frequently post closure announcements on social media when their domain lapses. Look for pinned posts saying "we are closed", "permanently closed", "our store is closed", "thank you for X years", or similar.
-- If you find a social closure announcement → "Likely Closed" at 85–95% confidence (this is the strongest possible closure signal short of a death certificate).
-- Squatted domain + social channels checked + no posts since 2023 + no Google Maps listing + no other channel hits = "Likely Closed" at 70–80%. Do NOT call this "Uncertain".
-- Squatted domain + active 2024+ social posts = investigate further (may be Uncertain if status unclear, or Active if business is clearly operating through social alone — see "single-channel businesses" in FAST PATH).
 
 EMPTY WEBSITE BUILDERS (Square, Weebly, Wix placeholders):
 - A generic landing page on Square, Weebly, or Wix with no business-specific content (no products, no services, no contact info specific to this business) is NOT a real web presence. Treat it the same as a dead domain.
 
 NO WEB PRESENCE — use it precisely:
-- Use "No Web Presence" ONLY when: the domain is dead (or no website was listed) AND all 8 channels returned zero results specifically about this business — not even an old directory listing, not even a social profile, not even a press mention with this business name.
-- "No Web Presence" is NOT the same as "Likely Closed". NWP means the business is unverifiable — there is simply nothing online to evaluate. The business may be closed, may operate offline, may never have had a presence.
-- If ANY search returned a result specifically naming this business (old directory listing, dormant social profile, news mention, founder LinkedIn referencing the business), use "Likely Closed" (stale signals support closure) or "Uncertain" (some recent activity exists) instead.
-- Generic placeholder pages (Wix, Weebly, Square "coming soon" templates with zero business-specific content, no products, no owner name, no contact info specific to this business) are NOT a web presence. If this is the only thing you found and search returns nothing for this business → "No Web Presence".
-- A personal Whitepages or RocketReach profile for an INDIVIDUAL is NOT a business web presence.
-- When in doubt between NWP and Likely Closed: if you can cite at least one result that specifically names this business, it is Likely Closed. If you cannot cite any result about this business specifically, it is NWP.
+- Only use "No Web Presence" if you found NOTHING specific to this business across all 8 channels — not even an old directory listing, not even an owner social profile.
+- If you found any result that specifically names this business (even an old one), use "Uncertain" or "Likely Closed" instead.
+- A personal Whitepages or RocketReach profile for an individual is NOT a business web presence.
 
 ---
 
@@ -374,17 +473,41 @@ def check_business(
                     status     = "Uncertain"
                     confidence = max(confidence, 40)
                     evidence   = f"[URL on file but could not confirm content — flagged for review] {evidence}"
+
+            # Aggregator-only Uncertain → Likely Closed override.
+            # Fires only when AI hedged Uncertain on a dead-domain business
+            # whose entire web footprint is data-broker / DOT / static directory
+            # listings — record-of-existence with no proof of current activity.
+            # Self-citations (the business's own dead domain) are filtered out
+            # so they don't block the override.
+            if (
+                status == "Uncertain"
+                and scrape_domain_dead
+                and confidence < AGGREGATOR_OVERRIDE_MAX_CONFIDENCE
+                and _all_citations_are_aggregators(citations, own_website=website)
+            ):
+                status     = "Likely Closed"
+                confidence = max(confidence, 70)
+                evidence   = (
+                    "[Dead domain + only aggregator/directory citations — "
+                    "no social, maps, or press signal found] " + evidence
+                )
+
             if citations:
                 sources = ", ".join(citations[:3])  # cap at 3 URLs
                 evidence = f"{evidence} | Sources: {sources}"
 
+            requires_review, review_reason = _compute_triage(status, confidence)
+
             result = {
-                "status":     status,
-                "confidence": str(confidence),  # stored as string — checkpoint.py and callers expect "0"–"100"
-                "evidence":   evidence,
-                "citations":  citations,
-                "cost_usd":   cost,
-                "error":      None,
+                "status":          status,
+                "confidence":      str(confidence),  # stored as string — checkpoint.py and callers expect "0"–"100"
+                "evidence":        evidence,
+                "citations":       citations,
+                "cost_usd":        cost,
+                "error":           None,
+                "requires_review": requires_review,
+                "review_reason":   review_reason,
             }
 
             if cache is not None:
@@ -413,12 +536,14 @@ def check_business(
 
 def _error_result(message: str, scrape_cost: float = 0.0) -> dict:
     return {
-        "status":     "Uncertain",
-        "confidence": "0",
-        "evidence":   message,
-        "citations":  [],
-        "cost_usd":   scrape_cost,
-        "error":      message,
+        "status":          "Uncertain",
+        "confidence":      "0",
+        "evidence":        message,
+        "citations":       [],
+        "cost_usd":        scrape_cost,
+        "error":           message,
+        "requires_review": True,
+        "review_reason":   "API error — manual investigation required.",
     }
 
 
