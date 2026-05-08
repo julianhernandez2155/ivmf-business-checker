@@ -547,6 +547,236 @@ def _error_result(message: str, scrape_cost: float = 0.0) -> dict:
     }
 
 
+# ── Multi-pass verification ───────────────────────────────────────────────────
+
+def check_business_3pass(
+    api_key: str,
+    name: str,
+    website: str,
+    city: str,
+    state: str,
+    max_retries: int = MAX_RETRIES,
+    cache=None,
+) -> dict:
+    """Run check_business 3 times and use majority-vote stability as the
+    confidence signal.
+
+    Auto-trust requires:
+      - all 3 passes return the same status (stable across runs), AND
+      - verdict passes triage (Active or Likely Closed ≥ 80%)
+
+    On disagreement, the most common verdict is reported but flagged for
+    human review. All 3 verdicts are recorded in the result dict.
+
+    The 1st pass uses the supplied cache (for resumability); passes 2 and 3
+    bypass the cache to force fresh searches.
+
+    Cost: 3x single-pass. Use for high-stakes batches.
+    """
+    pass1 = check_business(
+        api_key, name, website, city, state, max_retries=max_retries, cache=cache
+    )
+    if pass1.get("error") is not None:
+        return pass1
+
+    pass2 = check_business(
+        api_key, name, website, city, state, max_retries=max_retries, cache=None
+    )
+    pass3 = check_business(
+        api_key, name, website, city, state, max_retries=max_retries, cache=None
+    )
+
+    # Collect statuses, ignoring failed passes (treat as no-vote)
+    votes = []
+    for p in (pass1, pass2, pass3):
+        if p.get("error") is None:
+            votes.append(p["status"])
+
+    if not votes:
+        return pass1  # all 3 failed — return whatever pass 1 said
+
+    # Majority vote (Counter is in collections; use simple counting for clarity)
+    vote_counts: dict[str, int] = {}
+    for v in votes:
+        vote_counts[v] = vote_counts.get(v, 0) + 1
+    majority_status = max(vote_counts, key=lambda k: vote_counts[k])
+    majority_count = vote_counts[majority_status]
+    all_agree = majority_count == len(votes) == 3
+
+    # Take highest confidence among the runs that voted for the majority status
+    matching_confs = []
+    for p in (pass1, pass2, pass3):
+        if p.get("error") is None and p["status"] == majority_status:
+            try:
+                matching_confs.append(int(p["confidence"]))
+            except (ValueError, TypeError):
+                pass
+    chosen_conf = max(matching_confs) if matching_confs else int(pass1.get("confidence", 0))
+
+    total_cost = sum(p.get("cost_usd", 0.0) for p in (pass1, pass2, pass3))
+    citations = pass1.get("citations", [])  # use pass 1's citations as primary
+
+    # Decide review status
+    triage_review, triage_reason = _compute_triage(majority_status, chosen_conf)
+    if not all_agree:
+        # Any disagreement → flag for review regardless of triage
+        requires_review = True
+        review_reason = (
+            f"3-pass disagreement: {pass1['status']}/{pass2['status']}/{pass3['status']}. "
+            f"Majority: {majority_status} ({majority_count}/3)."
+        )
+        evidence_prefix = (
+            f"[3-pass disagreement — Pass 1: {pass1['status']}, "
+            f"Pass 2: {pass2['status']}, Pass 3: {pass3['status']}] "
+        )
+    elif triage_review:
+        # All 3 agreed but on a status that always needs review (Uncertain, NWP)
+        requires_review = True
+        review_reason = (
+            f"3-pass agreement on '{majority_status}', but verdict still requires review: "
+            + (triage_reason or "")
+        )
+        evidence_prefix = f"[3-pass agreement on {majority_status} — stable hedge] "
+    else:
+        # All 3 agreed on an auto-trustable verdict — promote
+        requires_review = False
+        review_reason = None
+        evidence_prefix = f"[3-pass agreement: all runs returned {majority_status}] "
+
+    return {
+        "status":          majority_status,
+        "confidence":      str(chosen_conf),
+        "evidence":        evidence_prefix + pass1.get("evidence", ""),
+        "citations":       citations,
+        "cost_usd":        total_cost,
+        "error":           None,
+        "requires_review": requires_review,
+        "review_reason":   review_reason,
+        "verifier_ran":    True,
+        "pass1_status":    pass1["status"],
+        "pass2_status":    pass2["status"],
+        "pass3_status":    pass3["status"],
+        "pass1_confidence": pass1["confidence"],
+        "pass2_confidence": pass2["confidence"],
+        "pass3_confidence": pass3["confidence"],
+    }
+
+
+# ── Two-pass verification (deferred 2nd pass on flagged results) ──────────────
+
+def check_business_with_verification(
+    api_key: str,
+    name: str,
+    website: str,
+    city: str,
+    state: str,
+    max_retries: int = MAX_RETRIES,
+    cache=None,
+) -> dict:
+    """Run check_business once. If the result is flagged for review, run a
+    second pass (cache-bypassed) and merge.
+
+    Merge behavior:
+      - If pass 2 status matches pass 1 → upgrade to auto-trusted, evidence
+        is annotated with "[2-pass agreement]".
+      - If pass 2 status disagrees → keep flagged for human review, evidence
+        carries both verdicts side-by-side.
+      - The pass 1 + pass 2 costs are summed in cost_usd.
+      - Original pass 1 verdict is preserved in pass1_status / pass1_confidence
+        so callers can audit what changed.
+
+    The 2nd pass always bypasses the cache (cache=None) to force a fresh
+    Perplexity call — using a cached result would defeat the purpose.
+
+    On a typical batch, pass 2 fires on 40–60% of records. Cost increase is
+    proportional to that flag rate.
+    """
+    pass1 = check_business(
+        api_key, name, website, city, state, max_retries=max_retries, cache=cache
+    )
+
+    # Don't double-check API errors — they need human attention regardless.
+    if pass1.get("error") is not None:
+        return pass1
+
+    # Don't double-check rows that are already auto-trusted.
+    if not pass1.get("requires_review", False):
+        return pass1
+
+    # Run pass 2 with cache disabled so we get a genuinely fresh search.
+    pass2 = check_business(
+        api_key, name, website, city, state, max_retries=max_retries, cache=None
+    )
+
+    if pass2.get("error") is not None:
+        # Pass 2 failed — keep pass 1 result, note the failure.
+        pass1["evidence"] = (
+            f"[2nd pass failed: {pass2.get('error', 'unknown')[:80]}] "
+            + pass1["evidence"]
+        )
+        pass1["cost_usd"] = pass1.get("cost_usd", 0.0) + pass2.get("cost_usd", 0.0)
+        return pass1
+
+    merged = dict(pass1)
+    merged["pass1_status"]     = pass1["status"]
+    merged["pass1_confidence"] = pass1["confidence"]
+    merged["pass2_status"]     = pass2["status"]
+    merged["pass2_confidence"] = pass2["confidence"]
+    merged["cost_usd"]         = pass1.get("cost_usd", 0.0) + pass2.get("cost_usd", 0.0)
+    merged["verifier_ran"]     = True
+
+    if pass1["status"] == pass2["status"]:
+        # Both passes agree on a verdict — but only promote to auto-trusted if
+        # the verdict itself is one we can auto-trust. Two passes both saying
+        # "Uncertain" or "No Web Presence" is stable hesitancy, NOT confirmation
+        # — those statuses always need human review.
+        agreed_status = pass1["status"]
+        try:
+            higher_conf = max(int(pass1["confidence"]), int(pass2["confidence"]))
+            merged["confidence"] = str(higher_conf)
+        except (ValueError, TypeError):
+            higher_conf = int(pass1["confidence"])
+
+        # Re-run triage on the merged verdict + confidence
+        new_review, new_reason = _compute_triage(agreed_status, higher_conf)
+        merged["requires_review"] = new_review
+
+        if new_review:
+            # Verdict is auto-review status (Uncertain/NWP) or below threshold
+            # — agreement doesn't override the review requirement.
+            merged["review_reason"] = (
+                f"2-pass agreement on '{agreed_status}', but verdict still requires review: "
+                + (new_reason or "")
+            )
+            merged["evidence"] = (
+                f"[2-pass agreement on {agreed_status} — stable hedge] "
+                + pass1["evidence"]
+            )
+        else:
+            # Genuinely promotable: high-confidence Active or Likely Closed,
+            # confirmed by a second pass.
+            merged["review_reason"] = None
+            merged["evidence"] = (
+                f"[2-pass agreement: both runs returned {agreed_status}] "
+                + pass1["evidence"]
+            )
+    else:
+        # Disagreement — keep flagged but record both verdicts.
+        merged["status"]          = pass1["status"]
+        merged["confidence"]      = pass1["confidence"]
+        merged["requires_review"] = True
+        merged["review_reason"]   = (
+            f"Pass 1: {pass1['status']} ({pass1['confidence']}%), "
+            f"Pass 2: {pass2['status']} ({pass2['confidence']}%) — verdicts disagree."
+        )
+        merged["evidence"] = (
+            f"[2-pass disagreement — Pass 1: {pass1['status']}, Pass 2: {pass2['status']}] "
+            f"{pass1['evidence']} || Pass 2 evidence: {pass2['evidence'][:200]}"
+        )
+
+    return merged
+
+
 # ── Standalone test ───────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

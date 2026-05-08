@@ -33,7 +33,11 @@ from dotenv import load_dotenv
 # Make tools importable when running as `python -m eval.rerun_sample`
 # from the business_checker directory.
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from tools.check_business import check_business  # noqa: E402
+from tools.check_business import (  # noqa: E402
+    check_business,
+    check_business_3pass,
+    check_business_with_verification,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +90,8 @@ def rerun_sample(
     input_xlsx: Path,
     api_key: str,
     workers: int = 3,
+    verify_flagged: bool = False,
+    three_pass: bool = False,
 ) -> pd.DataFrame:
     """Re-run the AI on every row in `sample_csv`, bypass cache, return new
     predictions.
@@ -115,14 +121,33 @@ def rerun_sample(
         city = input_data.get("city") or str(row_dict.get("city", ""))
         state = input_data.get("state") or str(row_dict.get("state", ""))
 
-        result = check_business(
-            api_key=api_key,
-            name=name,
-            website=website,
-            city=city,
-            state=state,
-            cache=None,  # Force fresh API call — bypass cache for prompt iteration
-        )
+        if three_pass:
+            result = check_business_3pass(
+                api_key=api_key,
+                name=name,
+                website=website,
+                city=city,
+                state=state,
+                cache=None,
+            )
+        elif verify_flagged:
+            result = check_business_with_verification(
+                api_key=api_key,
+                name=name,
+                website=website,
+                city=city,
+                state=state,
+                cache=None,
+            )
+        else:
+            result = check_business(
+                api_key=api_key,
+                name=name,
+                website=website,
+                city=city,
+                state=state,
+                cache=None,  # Force fresh API call — bypass cache for prompt iteration
+            )
 
         return {
             **row_dict,
@@ -133,6 +158,11 @@ def rerun_sample(
             "rerun_checked_at": rerun_ts,
             "rerun_cost_usd": result.get("cost_usd", 0.0),
             "rerun_error": result.get("error") or "",
+            "rerun_verifier_ran": result.get("verifier_ran", False),
+            "rerun_requires_review": result.get("requires_review", False),
+            "rerun_pass1_status": result.get("pass1_status", ""),
+            "rerun_pass2_status": result.get("pass2_status", ""),
+            "rerun_pass3_status": result.get("pass3_status", ""),
         }
 
     row_dicts = df.to_dict(orient="records")
@@ -189,6 +219,9 @@ def rerun_sample(
         "predicted_checked_at",
         "human_label", "human_justification", "reviewed_at",
         "rerun_checked_at", "rerun_cost_usd", "rerun_error",
+        # Verify-flagged / 3-pass mode columns
+        "rerun_verifier_ran", "rerun_requires_review",
+        "rerun_pass1_status", "rerun_pass2_status", "rerun_pass3_status",
     ]
     cols = [c for c in preserve_cols if c in out_df.columns]
     return out_df[cols]
@@ -206,6 +239,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--workers", type=int, default=3)
     parser.add_argument("--out", required=True, type=Path,
                         help="Output CSV path for refreshed predictions")
+    parser.add_argument("--verify-flagged", action="store_true",
+                        help="Use check_business_with_verification — runs a 2nd "
+                             "pass on rows flagged for review and merges results.")
+    parser.add_argument("--3pass", dest="three_pass", action="store_true",
+                        help="Use check_business_3pass — runs 3 passes on EVERY row, "
+                             "auto-trusts only when all 3 agree. 3x cost.")
     return parser
 
 
@@ -220,11 +259,16 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(1)
 
     args = _build_parser().parse_args(argv)
+    if args.verify_flagged and args.three_pass:
+        print("ERROR: --verify-flagged and --3pass are mutually exclusive.", file=sys.stderr)
+        sys.exit(1)
     out_df = rerun_sample(
         sample_csv=args.sample,
         input_xlsx=args.input_xlsx,
         api_key=api_key,
         workers=args.workers,
+        verify_flagged=args.verify_flagged,
+        three_pass=args.three_pass,
     )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -237,6 +281,9 @@ def main(argv: list[str] | None = None) -> None:
     print(f"  Total cost:  ${total_cost:.4f}")
     print(f"  Errors:      {err_count}")
     print(f"  Output:      {args.out}")
+    if args.verify_flagged and "rerun_verifier_ran" in out_df.columns:
+        verified = int(out_df["rerun_verifier_ran"].sum())
+        print(f"  2nd-pass runs: {verified} ({verified/len(out_df)*100:.1f}%)")
 
 
 if __name__ == "__main__":

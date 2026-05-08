@@ -29,7 +29,11 @@ import openpyxl
 from dotenv import load_dotenv
 
 from tools.cache import ResultCache
-from tools.check_business import check_business
+from tools.check_business import (
+    check_business,
+    check_business_with_verification,
+    check_business_3pass,
+)
 from tools.checkpoint import load_checkpoint, save_checkpoint, get_run_summary
 from tools.build_output import build_output_excel
 from tools.columns import detect_columns
@@ -72,7 +76,8 @@ def get_cell(row: tuple, col_idx) -> str:
 
 def run(input_path: str, run_dir: str, api_key: str,
         col_map: dict, workers: int, limit: int = None,
-        cache: ResultCache = None) -> None:
+        cache: ResultCache = None, verify_flagged: bool = False,
+        three_pass: bool = False) -> None:
 
     checkpoint_path = os.path.join(run_dir, "checkpoint.csv")
     logger          = setup_logging(run_dir)
@@ -105,6 +110,13 @@ def run(input_path: str, run_dir: str, api_key: str,
     logger.info(f"  Done      : {len(done)}")
     logger.info(f"  Remaining : {remaining}")
     logger.info(f"  Workers   : {workers}")
+    if three_pass:
+        mode_str = "3-PASS (3 calls per row, auto-trust only on full agreement)"
+    elif verify_flagged:
+        mode_str = "VERIFY-FLAGGED (2nd pass on review-flagged rows only)"
+    else:
+        mode_str = "single-pass"
+    logger.info(f"  Mode      : {mode_str}")
     logger.info("=" * 60)
 
     if remaining == 0:
@@ -115,6 +127,7 @@ def run(input_path: str, run_dir: str, api_key: str,
     counter_lock    = threading.Lock()
     completed_count = [len(done)]
     total_cost      = [0.0]
+    verified_count  = [0]    # how many rows triggered a 2nd pass
 
     def process_row(row_idx: int, row: tuple) -> dict:
         name    = get_cell(row, col_map.get("name"))
@@ -122,7 +135,16 @@ def run(input_path: str, run_dir: str, api_key: str,
         city    = get_cell(row, col_map.get("city"))
         state   = get_cell(row, col_map.get("state"))
 
-        result = check_business(api_key, name, website, city, state, cache=cache)
+        if three_pass:
+            result = check_business_3pass(
+                api_key, name, website, city, state, cache=cache
+            )
+        elif verify_flagged:
+            result = check_business_with_verification(
+                api_key, name, website, city, state, cache=cache
+            )
+        else:
+            result = check_business(api_key, name, website, city, state, cache=cache)
         checked_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         save_checkpoint(
@@ -135,13 +157,21 @@ def run(input_path: str, run_dir: str, api_key: str,
             completed_count[0] += 1
             n = completed_count[0]
             total_cost[0] += result.get("cost_usd", 0.0)
+            if result.get("verifier_ran"):
+                verified_count[0] += 1
             run_cost = total_cost[0]
 
         status_icon = {"Active": "✓", "Likely Closed": "✗",
                        "Uncertain": "?", "No Web Presence": "○"}.get(result["status"], "?")
         cache_tag = " [CACHED]" if result.get("_cached") else ""
+        verify_tag = ""
+        if result.get("verifier_ran"):
+            verify_tag = (
+                " [2-PASS✓]" if not result.get("requires_review")
+                else " [2-PASS✗]"
+            )
         logger.info(
-            f"[{n}/{total}]{cache_tag} {status_icon} {result['status']} "
+            f"[{n}/{total}]{cache_tag}{verify_tag} {status_icon} {result['status']} "
             f"({result['confidence']}%) | ${run_cost:.3f} | {name[:35]} — {result['evidence'][:70]}"
         )
 
@@ -189,6 +219,10 @@ def run(input_path: str, run_dir: str, api_key: str,
     logger.info(f"  Errors          : {summary['Errors']}")
     logger.info(f"  Total checked   : {summary['Total']}")
     logger.info(f"  Session cost    : ${run_cost:.4f}  (avg ${avg_cost:.4f}/check)")
+    if verify_flagged:
+        verified_n = verified_count[0]
+        verified_pct = (verified_n / checked * 100) if checked > 0 else 0
+        logger.info(f"  2nd-pass runs   : {verified_n} ({verified_pct:.1f}% of session)")
     logger.info("=" * 60)
 
     # Auto-export results
@@ -220,6 +254,14 @@ Check your tier: https://www.perplexity.ai/settings/api
                         help="Only process this many rows (useful for testing)")
     parser.add_argument("--no-cache", action="store_true",
                         help="Skip cache — force fresh API calls for every row")
+    parser.add_argument("--verify-flagged", action="store_true",
+                        help="On rows flagged for review (Uncertain, NWP, low-conf), "
+                             "run a 2nd pass and promote to auto-trusted if both passes "
+                             "agree. ~40-60%% of rows trigger 2nd pass — adds ~25-40%% cost.")
+    parser.add_argument("--3pass", dest="three_pass", action="store_true",
+                        help="Run 3 passes on EVERY row. Auto-trust only when all 3 "
+                             "agree AND verdict is auto-trustable. Best accuracy, 3x cost. "
+                             "Use for high-stakes batches (leadership reviews, outreach).")
     args = parser.parse_args()
 
     api_key = os.getenv("PERPLEXITY_API_KEY")
@@ -266,6 +308,9 @@ Check your tier: https://www.perplexity.ai/settings/api
         print("Cache disabled — all rows will make fresh API calls.")
 
     try:
+        if args.verify_flagged and args.three_pass:
+            print("ERROR: --verify-flagged and --3pass are mutually exclusive.")
+            sys.exit(1)
         run(
             input_path=dest,
             run_dir=run_dir,
@@ -274,6 +319,8 @@ Check your tier: https://www.perplexity.ai/settings/api
             workers=args.workers,
             limit=args.limit,
             cache=cache,
+            verify_flagged=args.verify_flagged,
+            three_pass=args.three_pass,
         )
     finally:
         if cache is not None:

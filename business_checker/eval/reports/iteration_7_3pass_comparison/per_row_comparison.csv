@@ -1,0 +1,61 @@
+row_index,name,human_label,baseline_status,baseline_conf,iteration_status,iteration_conf,change_class,scoreable
+132,Fundraiser Blankets®,Active,Active,100,Active,100,unchanged_correct,True
+12,Burn Pit BBQ,Active,Active,95,Active,100,unchanged_correct,True
+219,27 West,Active,Active,100,Active,100,unchanged_correct,True
+86,Resin8 Art Savannah,Active,Active,95,Active,95,unchanged_correct,True
+636,"SDVOSB Materials, Technology & Supply LLC",Active,Active,95,Active,100,unchanged_correct,True
+217,ViTAC Solutions,Active,Active,100,Active,100,unchanged_correct,True
+527,"UNIVERSAL SPARTAN, LLC",Active,Active,95,Active,95,unchanged_correct,True
+271,Princess Leahs Designs,Uncertain,Active,95,Active,95,unchanged_wrong,True
+94,The Mobile Cigar Lounge,Active,Active,95,Active,95,unchanged_correct,True
+85,Reflections of Service,Uncertain,Active,100,Active,98,unchanged_wrong,True
+349,Devil Dog Brew,Active,Active,95,Active,100,unchanged_correct,True
+562,Back Office Administrations LLC,Active,Active,95,Active,98,unchanged_correct,True
+223,Assault Forward,Active,Active,100,Active,100,unchanged_correct,True
+344,Black Ink Coffee,Active,Active,95,Active,95,unchanged_correct,True
+228,Blue Ribbon Buckle Co.,Active,Active,100,Active,100,unchanged_correct,True
+424,JMCO Consulting,Active,Active,100,Active,98,unchanged_correct,True
+292,TJL Collection,Active,Active,100,Active,100,unchanged_correct,True
+699,Cornhole and More LLC,Active,Active,95,Active,100,unchanged_correct,True
+484,iFusion Concepts,Active,Active,97,Active,98,unchanged_correct,True
+589,Matt Webb Design,Active,Active,100,Active,100,unchanged_correct,True
+581,Coping Resources,Unable to Determine,Likely Closed,75,Likely Closed,85,unchanged_wrong,False
+583,"Achieve New Heights, LLC",Uncertain,Likely Closed,75,Likely Closed,78,unchanged_wrong,True
+87,Saltwater & Sand,Likely Closed,Likely Closed,75,Likely Closed,80,unchanged_correct,True
+192,365 Self-Defense,Likely Closed,Likely Closed,75,No Web Presence,75,regressed,True
+535,"Overton's Grading, LLC",Likely Closed,Likely Closed,85,Active,95,regressed,True
+413,"Granted Advocacy Partners, Inc. (GAP, Inc.)",Likely Closed,Likely Closed,85,Active,95,regressed,True
+95,Travel Halo,Likely Closed,Likely Closed,75,Active,85,regressed,True
+455,SMB Coaching,Likely Closed,Likely Closed,75,Likely Closed,85,unchanged_correct,True
+375,Chosun4u,Likely Closed,Likely Closed,72,Likely Closed,78,unchanged_correct,True
+258,L'aube Boutique,Unable to Determine,Likely Closed,85,Likely Closed,82,unchanged_wrong,False
+314,A Guide to Improvised Weaponry,Active,Likely Closed,85,Likely Closed,90,unchanged_wrong,True
+125,Emotion On Walls,No Web Presence,Likely Closed,75,Likely Closed,80,unchanged_wrong,True
+268,One Fire Fight,Likely Closed,Likely Closed,75,Likely Closed,85,unchanged_correct,True
+161,CHAT Nature's Skin & Hair Co LLC,Likely Closed,Likely Closed,78,Active,95,regressed,True
+320,Coping with Sexual Assault/Military Sexual Trauma,Likely Closed,Likely Closed,72,Likely Closed,85,unchanged_correct,True
+126,Enchanted Rose Floral,Likely Closed,Likely Closed,72,Uncertain,55,regressed,True
+578,Weekend Navigators,Likely Closed,Likely Closed,75,Likely Closed,78,unchanged_correct,True
+18,Deep Sea Salt Company,Likely Closed,Likely Closed,78,Likely Closed,85,unchanged_correct,True
+410,FORCE MULTIPLIER TALENT,Likely Closed,Likely Closed,75,Likely Closed,80,unchanged_correct,True
+91,Stars & Stripes Gifts LV,Likely Closed,Likely Closed,75,Likely Closed,80,unchanged_correct,True
+685,Basket and Beads Kenya,Active,Uncertain,55,Active,95,resolved,True
+624,Casa Los Juanes,Uncertain,Uncertain,55,No Web Presence,85,regressed,True
+31,"King’s Coffee, LLC",Likely Closed,Uncertain,55,Uncertain,65,unchanged_wrong,True
+470,TTG Properties,Likely Closed,Uncertain,55,Uncertain,55,unchanged_wrong,True
+97,Tripoli Gift Company,Uncertain,Uncertain,50,Active,95,regressed,True
+388,Business Served,Uncertain,Uncertain,55,Uncertain,55,unchanged_correct,True
+193,Alpha Outpost,Likely Closed,Uncertain,65,Active,95,unchanged_wrong,True
+163,Dashfire Beards,Likely Closed,Uncertain,55,Active,95,unchanged_wrong,True
+286,Sword & Plough,Likely Closed,Uncertain,65,Active,95,unchanged_wrong,True
+680,Bundook,Likely Closed,Uncertain,55,No Web Presence,75,unchanged_wrong,True
+602,Griggsgear.com,Uncertain,Uncertain,72,Uncertain,85,unchanged_correct,True
+114,Disgruntled Decks,Active,Uncertain,50,Active,95,resolved,True
+451,Secretariat Strategie LLC,Uncertain,Uncertain,75,Likely Closed,85,regressed,True
+177,Peachy Keen Perfume,Likely Closed,Uncertain,65,Active,95,unchanged_wrong,True
+380,"A Simple Organizing & Moving Company, LLC",Likely Closed,Uncertain,55,Active,95,unchanged_wrong,True
+556,Spicers Nicer Massage Therapy,Active,Uncertain,60,Uncertain,55,unchanged_wrong,True
+88,"SerenaTea,LLC",No Web Presence,Uncertain,75,Active,95,unchanged_wrong,True
+176,Norwood Natural's CBD,Uncertain,Uncertain,55,Active,85,regressed,True
+538,"Spectra Cargo & Logistics, LLC",Likely Closed,Uncertain,65,Active,95,unchanged_wrong,True
+111,"CRSpices, ll",Uncertain,Uncertain,72,Active,95,regressed,True
