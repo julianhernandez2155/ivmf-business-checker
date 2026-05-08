@@ -25,8 +25,15 @@ def _safe(value):
         return _ILLEGAL_XML_RE.sub("", value)
     return value
 
-# AI result columns — placed first so analysts see outcomes immediately on open
-_AI_COLS = ["AI_Status", "AI_Confidence", "AI_Evidence", "AI_Checked_At"]
+# AI result columns — placed first so analysts see outcomes immediately on open.
+# AI_Requires_Review is the triage flag — analysts filter on it to find the
+# review queue. AI_Review_Reason explains why a row was flagged. AI_Pass_Verdicts
+# shows multi-pass results (when --verify-flagged or --3pass was used).
+_AI_COLS = [
+    "AI_Status", "AI_Confidence", "AI_Requires_Review",
+    "AI_Evidence", "AI_Review_Reason", "AI_Pass_Verdicts",
+    "AI_Checked_At",
+]
 
 # Status cell (AI_Status column) fill + font
 _STATUS_CELL_FILLS = {
@@ -52,11 +59,20 @@ _STATUS_ROW_FILLS = {
 
 # Column widths for the AI columns (characters)
 _AI_COL_WIDTHS = {
-    "AI_Status":     16,
-    "AI_Confidence": 14,
-    "AI_Evidence":   70,
-    "AI_Checked_At": 20,
+    "AI_Status":          16,
+    "AI_Confidence":      14,
+    "AI_Requires_Review": 16,
+    "AI_Evidence":        70,
+    "AI_Review_Reason":   45,
+    "AI_Pass_Verdicts":   38,
+    "AI_Checked_At":      20,
 }
+
+# Highlight the review queue: rows where AI_Requires_Review == "TRUE" get a
+# distinctive cell fill on the flag column so analysts can spot them
+# without filtering. The column is also auto-filterable by default.
+_REVIEW_FLAG_FILL = PatternFill("solid", fgColor="FFD43B")  # warm yellow
+_REVIEW_FLAG_FONT = Font(color="6E5500", bold=True)
 
 # Width hints for source columns — matched by substring against the header name (lowercase)
 _SOURCE_COL_WIDTH_HINTS = [
@@ -158,15 +174,20 @@ def build_output_excel(input_path: str, output_path: str, checkpoint_path: str) 
         if key in checkpoint:
             r = checkpoint[key]
             status = r["AI_Status"]
+            # Use .get(...) for backward-compat: old checkpoints lack the
+            # triage cols. Missing values render as empty strings.
             ai_data = [
                 status,
                 r["AI_Confidence"],
+                r.get("AI_Requires_Review", ""),
                 _safe(r["AI_Evidence"]),
+                _safe(r.get("AI_Review_Reason", "")),
+                _safe(r.get("AI_Pass_Verdicts", "")),
                 r["AI_Checked_At"],
             ]
         else:
             status = None
-            ai_data = ["Not Checked", "", "", ""]
+            ai_data = ["Not Checked"] + [""] * (len(_AI_COLS) - 1)
 
         ws_out.append(ai_data + source_data)
         out_row = ws_out.max_row
@@ -183,14 +204,25 @@ def build_output_excel(input_path: str, output_path: str, checkpoint_path: str) 
             status_cell.font = _STATUS_CELL_FONTS[status]
             status_cell.alignment = Alignment(horizontal="center")
 
+        # Highlight AI_Requires_Review cell when flagged TRUE — overrides the
+        # row fill so the review queue is visible at a glance.
+        review_col_idx = _AI_COLS.index("AI_Requires_Review") + 1
+        review_cell = ws_out.cell(row=out_row, column=review_col_idx)
+        if str(review_cell.value).strip().upper() == "TRUE":
+            review_cell.fill = _REVIEW_FLAG_FILL
+            review_cell.font = _REVIEW_FLAG_FONT
+            review_cell.alignment = Alignment(horizontal="center")
+
         # Bold the business name column(s)
         for col_idx in name_col_indices:
             ws_out.cell(row=out_row, column=col_idx).font = Font(bold=True)
 
     wb_in.close()  # required when read_only=True
 
-    # Freeze panes: lock header row + AI columns so source data scrolls freely
-    ws_out.freeze_panes = "E2"
+    # Freeze panes: lock header row + AI columns so source data scrolls freely.
+    # The freeze column is one past the last AI column (so all AI cols stay locked).
+    freeze_col = get_column_letter(len(_AI_COLS) + 1)
+    ws_out.freeze_panes = f"{freeze_col}2"
 
     # Auto-filter across all columns
     ws_out.auto_filter.ref = ws_out.dimensions
@@ -200,10 +232,11 @@ def build_output_excel(input_path: str, output_path: str, checkpoint_path: str) 
         col_idx = _AI_COLS.index(col_name) + 1
         col_letter = get_column_letter(col_idx)
         ws_out.column_dimensions[col_letter].width = width
-    # Wrap AI_Evidence so long text stays readable without expanding the row height excessively
-    evidence_col = get_column_letter(_AI_COLS.index("AI_Evidence") + 1)
-    for row_idx in range(2, ws_out.max_row + 1):
-        ws_out[f"{evidence_col}{row_idx}"].alignment = Alignment(wrap_text=True, vertical="top")
+    # Wrap AI_Evidence and AI_Review_Reason — both can be long.
+    for wrap_col_name in ("AI_Evidence", "AI_Review_Reason"):
+        wrap_col = get_column_letter(_AI_COLS.index(wrap_col_name) + 1)
+        for row_idx in range(2, ws_out.max_row + 1):
+            ws_out[f"{wrap_col}{row_idx}"].alignment = Alignment(wrap_text=True, vertical="top")
 
     # Source column widths — detected by header name
     for i, header in enumerate(source_headers):

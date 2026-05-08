@@ -14,6 +14,9 @@ _lock = threading.Lock()
 FIELDNAMES = [
     "row_index", "name", "website",
     "AI_Status", "AI_Confidence", "AI_Evidence", "AI_Checked_At",
+    # Triage / multi-pass metadata (added 2026-05-08 — backward-compatible:
+    # old checkpoints without these cols load fine, missing values default to "")
+    "AI_Requires_Review", "AI_Review_Reason", "AI_Pass_Verdicts",
 ]
 
 ERROR_KEYWORDS = ["Parse error", "No text response", "Error:", "Failed after"]
@@ -35,25 +38,35 @@ def load_checkpoint(path: str) -> dict:
 
 
 def save_checkpoint(path: str, row_index, name, website,
-                    status, confidence, evidence, checked_at) -> None:
+                    status, confidence, evidence, checked_at,
+                    requires_review: bool = False,
+                    review_reason: str = "",
+                    pass_verdicts: str = "") -> None:
     """
     Append one result row to the checkpoint CSV.
     Thread-safe — safe to call from multiple concurrent workers.
+
+    The triage metadata fields (requires_review, review_reason, pass_verdicts)
+    default to "off" so existing call sites and older code paths continue to
+    write valid rows. The verify-flagged and 3-pass modes pass real values.
     """
     with _lock:
         file_exists = os.path.exists(path)
         with open(path, "a", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
+            writer = csv.DictWriter(f, fieldnames=FIELDNAMES, extrasaction="ignore")
             if not file_exists:
                 writer.writeheader()
             writer.writerow({
-                "row_index":     str(row_index),
-                "name":          name,
-                "website":       website,
-                "AI_Status":     status,
-                "AI_Confidence": confidence,
-                "AI_Evidence":   evidence,
-                "AI_Checked_At": checked_at,
+                "row_index":          str(row_index),
+                "name":               name,
+                "website":            website,
+                "AI_Status":          status,
+                "AI_Confidence":      confidence,
+                "AI_Evidence":        evidence,
+                "AI_Checked_At":      checked_at,
+                "AI_Requires_Review": "TRUE" if requires_review else "FALSE",
+                "AI_Review_Reason":   review_reason or "",
+                "AI_Pass_Verdicts":   pass_verdicts or "",
             })
 
 
@@ -69,7 +82,12 @@ def rewrite_checkpoint(path: str, rows: list) -> None:
     bak_path = path + ".bak"
     with _lock:
         with open(tmp_path, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
+            # extrasaction="ignore" lets us drop unknown keys; restval="" lets us
+            # write rows that are missing the newer triage columns (backward-compat
+            # with checkpoints created before 2026-05-08).
+            writer = csv.DictWriter(
+                f, fieldnames=FIELDNAMES, extrasaction="ignore", restval=""
+            )
             writer.writeheader()
             for row in rows:
                 writer.writerow(row)

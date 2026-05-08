@@ -817,7 +817,9 @@ class App(tk.Tk):
 
                 save_checkpoint(checkpoint_path, row_idx, name, website,
                                 result["status"], result["confidence"],
-                                result["evidence"], checked_at)
+                                result["evidence"], checked_at,
+                                requires_review=bool(result.get("requires_review", False)),
+                                review_reason=str(result.get("review_reason") or ""))
 
                 with counter_lock:
                     completed_count[0] += 1

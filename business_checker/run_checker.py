@@ -147,10 +147,23 @@ def run(input_path: str, run_dir: str, api_key: str,
             result = check_business(api_key, name, website, city, state, cache=cache)
         checked_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+        # Build a compact "Pass 1: Active(95) | Pass 2: Active(92)" string
+        # so analysts can see multi-pass agreement/disagreement in the export.
+        verdict_parts = []
+        for pass_n in (1, 2, 3):
+            ps = result.get(f"pass{pass_n}_status", "")
+            pc = result.get(f"pass{pass_n}_confidence", "")
+            if ps:
+                verdict_parts.append(f"P{pass_n}: {ps}({pc})")
+        pass_verdicts = " | ".join(verdict_parts)
+
         save_checkpoint(
             checkpoint_path, row_idx, name, website,
             result["status"], result["confidence"],
             result["evidence"], checked_at,
+            requires_review=bool(result.get("requires_review", False)),
+            review_reason=str(result.get("review_reason") or ""),
+            pass_verdicts=pass_verdicts,
         )
 
         with counter_lock:
