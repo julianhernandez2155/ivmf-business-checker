@@ -5,6 +5,7 @@ status: draft
 nyquist_compliant: false
 wave_0_complete: false
 created: 2026-05-12
+updated: 2026-05-12
 ---
 
 # Phase 0 — Validation Strategy
@@ -36,24 +37,52 @@ created: 2026-05-12
 
 ## Per-Task Verification Map
 
-| Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 0-01-01 | 01 | 1 | CANON-05 | unit | `pytest worker/tests/test_schema.py -x` | ❌ W0 | ⬜ pending |
-| 0-01-02 | 01 | 1 | CANON-06 | unit | `pytest worker/tests/test_append_only.py -x` | ❌ W0 | ⬜ pending |
-| 0-01-03 | 01 | 1 | CANON-07 | unit | `pytest worker/tests/test_audit_trigger.py -x` | ❌ W0 | ⬜ pending |
-| 0-01-04 | 01 | 1 | CANON-08 | integration | `pytest worker/tests/test_pgmq.py -x` | ❌ W0 | ⬜ pending |
-| 0-02-01 | 02 | 2 | CANON-03 | ci | `bash scripts/check-drift.sh` | ❌ W0 | ⬜ pending |
-| 0-02-02 | 02 | 2 | CANON-03 | ci | `gh workflow view codegen-drift` | n/a | ⬜ pending |
-| 0-03-01 | 03 | 3 | AUTH-01 | e2e | `pnpm test web/tests/auth-magic-link.spec.ts` | ❌ W0 | ⬜ pending |
-| 0-03-02 | 03 | 3 | AUTH-02 | unit | `pnpm test web/tests/middleware-allowlist.test.ts` | ❌ W0 | ⬜ pending |
-| 0-03-03 | 03 | 3 | AUTH-03 | sql | `pytest worker/tests/test_rls_domain_allowlist.py -x` | ❌ W0 | ⬜ pending |
-| 0-03-04 | 03 | 3 | AUTH-04 | sql | `pytest worker/tests/test_allowlist_admin.py -x` | ❌ W0 | ⬜ pending |
-| 0-04-01 | 04 | 4 | ANALYTICS-04 | unit | `pytest worker/tests/test_heartbeat.py -x` | ❌ W0 | ⬜ pending |
-| 0-04-02 | 04 | 4 | ANALYTICS-04 | integration | `pytest worker/tests/test_worker_loop.py -x` | ❌ W0 | ⬜ pending |
-| 0-05-01 | 05 | 5 | CANON-03 | ci | `bash scripts/eval-ci.sh` | ❌ W0 | ⬜ pending |
-| 0-05-02 | 05 | 5 | (demo) | manual | `bash scripts/phase0-demo.sh` | ❌ W0 | ⬜ pending |
+Per-task map rebuilt from each plan's `requirements:` frontmatter and `<task>` blocks (2026-05-12 revision).
+Task IDs follow the convention `{phase}-{plan}-{task}`.
+
+| Task ID | Plan | Wave | Requirement(s) | Test Type | Automated Command | Status |
+|---------|------|------|----------------|-----------|-------------------|--------|
+| 0-01-* | 01 wave0-test-scaffolding | 0 | (scaffolding) | unit/ci | `cd worker && pytest --co && cd ../web && pnpm test --run --reporter=verbose` | ⬜ pending |
+| 0-02-01 | 02 supabase-schema-rls | 1 | CANON-05, CANON-06, CANON-07, CANON-08, AUTH-04 | sql/migration | `psql $SUPABASE_DEV_DB_URL -tAc "select count(*) from information_schema.tables where table_schema='public'"` returns ≥ 11 | ⬜ pending |
+| 0-02-02 | 02 supabase-schema-rls | 1 | CANON-05, CANON-06, CANON-07, CANON-08, AUTH-04 | integration | `cd worker && pytest tests/test_schema.py tests/test_append_only.py tests/test_audit_trigger.py tests/test_pgmq.py tests/test_app_config.py tests/test_api_calls.py tests/test_verifications_schema.py tests/test_businesses_schema.py -x` | ⬜ pending |
+| 0-02-03 | 02 supabase-schema-rls | 1 | CANON-03 | unit | `cd worker && pytest tests/test_normalize.py -x` | ⬜ pending |
+| 0-03-01 | 03 codegen-drift-gate | 2 | (infra — gates CANON-03/CANON-05/CANON-06/CANON-07/CANON-08 from plan 02) | ci | `test -f web/drizzle.config.ts && test -f web/db/schema.ts && grep -q "businesses" web/db/schema.ts` | ⬜ pending |
+| 0-03-02 | 03 codegen-drift-gate | 2 | (infra) | ci | `test -f worker/workers/lib/models.py && grep -q "extra.*forbid\\|ConfigDict" worker/workers/lib/models.py` | ⬜ pending |
+| 0-03-03 | 03 codegen-drift-gate | 2 | (infra) | ci | `python -c "import yaml; yaml.safe_load(open('.github/workflows/codegen-drift.yml')); yaml.safe_load(open('.github/workflows/ci.yml'))"` | ⬜ pending |
+| 0-04-01 | 04 web-auth-shell | 3 | AUTH-01, AUTH-02, AUTH-03 | unit | `cd web && pnpm exec tsc --noEmit` | ⬜ pending |
+| 0-04-02 | 04 web-auth-shell | 3 | AUTH-01, AUTH-02, AUTH-03 | integration | `psql $SUPABASE_DEV_DB_URL -tAc "select 1 from pg_proc where proname='current_role_claim' and pronamespace='auth'::regnamespace"` returns 1 | ⬜ pending |
+| 0-04-03 | 04 web-auth-shell | 3 | AUTH-01, AUTH-02, AUTH-03 | unit + integration | `cd web && pnpm test --run tests/middleware-allowlist.test.ts tests/auth-magic-link.spec.ts` AND `cd worker && pytest tests/test_rls_domain_allowlist.py tests/test_rbac.py tests/test_allowlist_admin.py -x` | ⬜ pending |
+| 0-05-01 | 05 worker-railway-pgmq | 4 | (infra — D-00-09 + D-00-11 item 5) | unit | `python -c "from workers.lib.db import get_pool; from workers.lib.pgmq_client import QueueClient; from workers.lib.shutdown import shutdown"` | ⬜ pending |
+| 0-05-02 | 05 worker-railway-pgmq | 4 | (infra) | ci + deploy | `curl https://WORKER_DOMAIN/health` returns 200; psql confirms heartbeat row within 60s | ⬜ pending |
+| 0-05-03 | 05 worker-railway-pgmq | 4 | (infra) | unit + integration | `cd worker && pytest tests/test_worker_loop.py tests/test_heartbeat.py -x` | ⬜ pending |
+| 0-06-01 | 06 eval-ci-demo | 5 | ANALYTICS-04 | unit | `python -m business_checker.eval.score --gold business_checker/eval/gold.json --out /tmp/test.json && python -c "import json; d=json.load(open('/tmp/test.json')); assert 'accuracy' in d and 'n_examples' in d"` | ⬜ pending |
+| 0-06-02 | 06 eval-ci-demo | 5 | ANALYTICS-04 | ci | `python -c "import yaml; yaml.safe_load(open('.github/workflows/eval-ci.yml'))"` | ⬜ pending |
+| 0-06-03 | 06 eval-ci-demo | 5 | (D-00-11 item 6) | manual | Resend account created + IT ticket filed; ticket ID recorded in 00-EVIDENCE.md | ⬜ pending |
+| 0-06-04 | 06 eval-ci-demo | 5 | (D-00-11 demo) | manual + ci | `bash scripts/phase0-demo.sh` exits 0; both demo PRs (drift + eval) opened, failed CI, closed | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+
+### Requirement → Plan Coverage
+
+Cross-check that every phase requirement is owned by at least one plan:
+
+| Requirement | Owned by Plan(s) | Verification Task(s) |
+|-------------|------------------|----------------------|
+| CANON-03 | 02 | 0-02-03 |
+| CANON-05 | 02 | 0-02-01, 0-02-02 |
+| CANON-06 | 02 | 0-02-01, 0-02-02 |
+| CANON-07 | 02 | 0-02-01, 0-02-02 |
+| CANON-08 | 02 | 0-02-01, 0-02-02 |
+| AUTH-01 | 04 | 0-04-01, 0-04-03 |
+| AUTH-02 | 04 | 0-04-01, 0-04-03 |
+| AUTH-03 | 04 | 0-04-02, 0-04-03 |
+| AUTH-04 | 02 | 0-02-02 |
+| ANALYTICS-04 | 06 | 0-06-01, 0-06-02 |
+
+Plans 03 and 05 own no requirements directly — they are infrastructure (codegen-drift gate
+and Railway worker scaffold). They GATE requirements owned by other plans (e.g. plan 03's
+drift workflow protects the schema artifacts that satisfy CANON-05/06/07/08 from plan 02).
+This is intentional and consistent with the phase architecture.
 
 ---
 
@@ -83,8 +112,8 @@ created: 2026-05-12
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
 | Resend DNS ticket filed with IT for IVMF subdomain | (demo item 6) | Org-side ticketing system, not in repo | Filed ticket URL pasted into `.planning/phases/00-foundation/00-EVIDENCE.md` with timestamp |
-| Drift-trip PR fails CI in GitHub UI | CANON-03 | Requires opening a real PR | Create branch with intentional schema mismatch, push, screenshot failing check |
-| Eval-CI regression PR fails CI in GitHub UI | CANON-03 | Same | Create branch lowering accuracy, push, screenshot failing check |
+| Drift-trip PR fails CI in GitHub UI | (infra gating CANON-05/06/07/08) | Requires opening a real PR AND mutating live dev DB (psql ALTER) — see plan 06 task 4 | Branch with `psql -c "alter table public.businesses drop column normalized_name;"` then commit migration edit; push; screenshot failing check; restore via `psql -c "alter table public.businesses add column normalized_name text;"` |
+| Eval-CI regression PR fails CI in GitHub UI | ANALYTICS-04 | Requires opening a real PR | Create branch lowering gold-set accuracy, push, screenshot failing check |
 
 ---
 

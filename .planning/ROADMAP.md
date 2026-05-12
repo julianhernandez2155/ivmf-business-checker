@@ -32,6 +32,14 @@ Outreach (Phase 4) is the only externally-blocked phase (IT must verify Resend D
 **Goal:** Foundational infrastructure is live — schema, RLS, auth, worker, codegen, and eval-CI gate are all green so every subsequent phase composes cleanly.
 **Depends on:** v1.0 polish pass extracting multi-pass aggregator to `business_checker/tools/aggregator.py` (NOT a phase deliverable; precondition).
 **Requirements:** AUTH-01, AUTH-02, AUTH-03, AUTH-04, CANON-03, CANON-05, CANON-06, CANON-07, CANON-08, ANALYTICS-04
+**Plans:** 6 plans across 6 waves
+Plans:
+- [ ] 00-01-wave0-test-scaffolding-PLAN.md — Wave 0 stub test files, fixtures, scripts, Makefile (no requirements; scaffolding)
+- [ ] 00-02-supabase-schema-rls-PLAN.md — Wave 1 schema + RLS + append-only triggers + pgmq queues + normalize helpers (CANON-03, CANON-05, CANON-06, CANON-07, CANON-08, AUTH-04)
+- [ ] 00-03-codegen-drift-gate-PLAN.md — Wave 2 Drizzle introspect + Pydantic codegen + GitHub Actions drift gate (no new reqs; supports P4 defense)
+- [ ] 00-04-web-auth-shell-PLAN.md — Wave 3 Next.js 16 + magic-link auth + middleware allowlist + /me page (AUTH-01, AUTH-02, AUTH-03)
+- [ ] 00-05-worker-railway-pgmq-PLAN.md — Wave 4 FastAPI worker scaffold + heartbeat + pgmq long-poll (D-00-09, D-00-11 item 5; no new reqs)
+- [ ] 00-06-eval-ci-demo-PLAN.md — Wave 5 eval-CI regression gate + Resend DNS ticket + Phase 0 exit demo (ANALYTICS-04)
 **Success Criteria** (what must be TRUE):
   1. User with @syr.edu email can sign in via magic-link or password; non-allowlisted domains are blocked at middleware AND RLS layers.
   2. Admin can extend the email domain allowlist by editing a config row with no code change.
@@ -39,7 +47,6 @@ Outreach (Phase 4) is the only externally-blocked phase (IT must verify Resend D
   4. Pushing a worker deploy with a schema drift (Pydantic/Drizzle out of sync with Postgres) fails CI; pushing a deploy that regresses the eval gold-set accuracy below baseline fails CI.
   5. Attempting `UPDATE` or `DELETE` on the `verifications` table raises a Postgres exception; an `INSERT` succeeds and idempotency UNIQUE keys reject duplicate `(run_id, row_index, pass)` and `(provider, request_hash)` inserts.
   6. pgmq queues `q_verify` and `q_aggregator` are configured with vt=300s; upload-parse rejects files whose columns fall outside the public-registry allowlist; Resend DNS ticket for IVMF subdomain is filed with IT.
-**Plans:** TBD
 
 ### Phase 1: Cache-Only Verification
 **Goal:** A user can upload a CSV/XLSX, see canonical matches against existing verified businesses, and export a v1.0-compatible XLSX/CSV — without the system spending a single cent on external APIs.
@@ -118,7 +125,7 @@ Outreach (Phase 4) is the only externally-blocked phase (IT must verify Resend D
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 0. Foundation | 0/0 | Not started | — |
+| 0. Foundation | 0/6 | Planned | — |
 | 1. Cache-Only Verification | 0/0 | Not started | — |
 | 2. Live Verification | 0/0 | Not started | — |
 | 3. Manual Workflows | 0/0 | Not started | — |
@@ -144,4 +151,4 @@ All 50 v1.1 requirements mapped to exactly one phase:
 Coverage: 50/50 ✓ — no orphans, no duplicates.
 
 ---
-*Last updated: 2026-05-12 — milestone v1.1 roadmap created*
+*Last updated: 2026-05-12 — Phase 0 planned (6 plans, 6 waves)*
