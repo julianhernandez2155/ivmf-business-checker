@@ -31,7 +31,13 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 - Resend (transactional email on IVMF subdomain)
 
 **Open externally-blocked items:**
-- IVMF subdomain + Resend DNS records (SPF/DKIM/DMARC) — IT ticket
-- PII boundary signoff (owner names + addresses to Perplexity) — Jim/compliance
-- Hosting residency confirmation — Jim/IT
-- Data retention policy decision — Jim
+- IVMF subdomain + Resend DNS records (SPF/DKIM/DMARC) — IT ticket (gates Phase 4 only)
+- Hosting residency confirmation — Jim/IT (informational)
+- Data retention policy decision for raw provider response bodies — Jim (default: 30d to match v1.0)
+
+**PII compliance:** Not a phase gate. Datasets used (BMSG, MWBE, VOB) are public registries. Upload-parse allowlist (`business_name`, `city`, `state`, `naics`, `website`) is kept as defense-in-depth against accidental private-data uploads, but does not require compliance signoff.
+
+**Resolved phase-shape decisions (2026-05-12):**
+- Phase 1 stays separate as cache-only (no API calls); Phase 2 adds live verification
+- Aggregator extracted to `tools/aggregator.py` as v1.0 polish BEFORE pivot starts
+- PII signoff dropped as phase gate

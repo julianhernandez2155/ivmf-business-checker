@@ -88,7 +88,7 @@ An AI-assisted business verification tool used by the Institute for Veterans and
 - **Auditability**: Runs are immutable after completion; admin "edits" create new verifications, never overwrite — IVMF will be asked to justify status decisions.
 - **Cost control**: Pre-flight estimate + per-run cap + monthly cap per API key, with hard stop — A single bad 50k-row upload at $0.005/call = $250.
 - **Backward compatibility of outputs**: CSV/XLSX export must remain a drop-in replacement for desktop output — Existing IVMF workflows consume these files downstream.
-- **Compliance**: PII to external LLM APIs requires Jim/compliance signoff before outreach phase ships — IVMF policy.
+- **Compliance**: Not a phase gate — IVMF datasets used here (BMSG, MWBE, VOB) are public registries. Soft defense: upload-parse allowlist flags accidental future uploads of non-public data.
 - **Eval discipline**: Eval harness must run in CI on every worker deploy and block on accuracy regression — Override logic and prompt changes will silently rot otherwise.
 
 ## Key Decisions
@@ -106,6 +106,9 @@ An AI-assisted business verification tool used by the Institute for Veterans and
 | Two-role RBAC (admin + user) for v1.1 | Lowest complexity that meets IVMF staff workflow; deferrable upgrade path | — Pending |
 | Idempotency keys on verifications | FireCrawl 429/timeout retries will double-bill and double-write otherwise | — Pending |
 | Eval harness blocks worker deploys on regression | Prompt/model changes silently rot the override logic; eval is the only defense | — Pending |
+| Phase 1 ships cache-only (zero external API calls); Phase 2 adds live verification | Cleaner acceptance of schema/canonical/RLS/Realtime before money is at risk; demoable as "reupload dedupe" moment | — Pending |
+| Extract multi-pass aggregator to `tools/aggregator.py` as v1.0 polishing pass BEFORE pivot starts | Lower per-phase risk; eval gold set re-validates immediately; Phase 2 worker just imports the module | — Pending |
+| PII compliance is NOT a phase gate; datasets (BMSG/MWBE/VOB) are public registries | No compliance signoff required to ship. Lightweight allowlist check at upload-parse remains as defense-in-depth for accidental future uploads | — Pending |
 
 ## Evolution
 
