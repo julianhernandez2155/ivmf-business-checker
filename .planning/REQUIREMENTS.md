@@ -114,7 +114,59 @@ These shipped in v1.0 (desktop) and are preserved through the worker:
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| (Populated by roadmapper) | | |
+| AUTH-01 | Phase 0 | Pending |
+| AUTH-02 | Phase 0 | Pending |
+| AUTH-03 | Phase 0 | Pending |
+| AUTH-04 | Phase 0 | Pending |
+| CANON-01 | Phase 1 | Pending |
+| CANON-02 | Phase 1 | Pending |
+| CANON-03 | Phase 0 | Pending |
+| CANON-04 | Phase 1 | Pending |
+| CANON-05 | Phase 0 | Pending |
+| CANON-06 | Phase 0 | Pending |
+| CANON-07 | Phase 0 | Pending |
+| CANON-08 | Phase 0 | Pending |
+| JOBS-01 | Phase 1 | Pending |
+| JOBS-02 | Phase 2 | Pending |
+| JOBS-03 | Phase 2 | Pending |
+| JOBS-04 | Phase 2 | Pending |
+| JOBS-05 | Phase 1 | Pending |
+| JOBS-06 | Phase 2 | Pending |
+| JOBS-07 | Phase 2 | Pending |
+| JOBS-08 | Phase 2 | Pending |
+| JOBS-09 | Phase 2 | Pending |
+| JOBS-10 | Phase 2 | Pending |
+| JOBS-11 | Phase 2 | Pending |
+| JOBS-12 | Phase 2 | Pending |
+| JOBS-13 | Phase 1 | Pending |
+| JOBS-14 | Phase 2 | Pending |
+| MANUAL-01 | Phase 3 | Pending |
+| MANUAL-02 | Phase 3 | Pending |
+| MANUAL-03 | Phase 3 | Pending |
+| MANUAL-04 | Phase 3 | Pending |
+| MANUAL-05 | Phase 3 | Pending |
+| OUTREACH-01 | Phase 4 | Pending |
+| OUTREACH-02 | Phase 4 | Pending |
+| OUTREACH-03 | Phase 4 | Pending |
+| OUTREACH-04 | Phase 4 | Pending |
+| OUTREACH-05 | Phase 4 | Pending |
+| OUTREACH-06 | Phase 4 | Pending |
+| OUTREACH-07 | Phase 4 | Pending |
+| OUTREACH-08 | Phase 4 | Pending |
+| OUTREACH-09 | Phase 4 | Pending |
+| ANALYTICS-01 | Phase 5 | Pending |
+| ANALYTICS-02 | Phase 5 | Pending |
+| ANALYTICS-03 | Phase 5 | Pending |
+| ANALYTICS-04 | Phase 0 | Pending |
+| ANALYTICS-05 | Phase 1 | Pending |
+| EXPORT-01 | Phase 1 | Pending |
+| EXPORT-02 | Phase 1 | Pending |
+| EXPORT-03 | Phase 1 | Pending |
+| EXPORT-04 | Phase 2 | Pending |
+| EXPORT-05 | Phase 1 | Pending |
+| EXPORT-06 | Phase 1 | Pending |
+
+**Coverage:** 50/50 v1.1 requirements mapped to exactly one phase. No orphans.
 
 ---
-*Last updated: 2026-05-12 after milestone v1.1 requirements scoping*
+*Last updated: 2026-05-12 after roadmap creation*
