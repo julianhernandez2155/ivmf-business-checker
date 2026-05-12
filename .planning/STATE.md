@@ -4,8 +4,8 @@
 
 Phase: Phase 0 — Foundation
 Plan: — (awaiting `/gsd:plan-phase 0`)
-Status: Roadmap complete, ready to plan Phase 0
-Last activity: 2026-05-12 — Roadmap created for milestone v1.1
+Status: Phase 0 context captured; ready to plan
+Last activity: 2026-05-12 — `/gsd:discuss-phase 0` produced CONTEXT.md + DISCUSSION-LOG.md (commit 7ea2b24)
 
 ## Project Reference
 
