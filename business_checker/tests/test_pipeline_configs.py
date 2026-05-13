@@ -23,11 +23,19 @@ from tools.pipeline_configs import (
 
 
 class TestRegistry:
-    def test_exactly_four_configs(self):
-        # Plan says "exactly four" — guard against accidental additions
-        # creeping in without an explicit ADR.
-        assert len(PIPELINE_REGISTRY) == 4
-        assert set(PIPELINE_NAMES) == {"v10", "v11", "v12_current_prod", "v12_full"}
+    def test_registry_contains_expected_configs(self):
+        # iter 13: v10 / v11 / v12_current_prod / v12_full.
+        # iter 14 spike: + v14_branch_a1 / v14_branch_a2.
+        # Guard against accidental additions creeping in without an explicit ADR.
+        assert set(PIPELINE_NAMES) == {
+            "v10",
+            "v11",
+            "v12_current_prod",
+            "v12_full",
+            "v14_branch_a1",
+            "v14_branch_a2",
+        }
+        assert len(PIPELINE_REGISTRY) == 6
 
     def test_lookup_by_name(self):
         assert get_pipeline_config("v11") is V11

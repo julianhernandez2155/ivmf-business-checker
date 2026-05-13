@@ -44,6 +44,8 @@ from tools.pipeline_configs import (  # noqa: E402
     get_pipeline_config,
 )
 
+BRANCH_A_PIPELINE_NAMES = ("v14_branch_a1", "v14_branch_a2")
+
 logger = logging.getLogger(__name__)
 
 
@@ -117,6 +119,7 @@ def rerun_sample(
     workers: int = 3,
     verify_flagged: bool = False,
     three_pass: bool = False,
+    anthropic_api_key: str | None = None,
 ) -> pd.DataFrame:
     """Re-run the AI on every row in `sample_csv`, bypass cache, return new
     predictions.
@@ -157,7 +160,27 @@ def rerun_sample(
         extracted_metadata = input_data.get("metadata")
         metadata = extracted_metadata if config.use_metadata else None
 
-        if three_pass:
+        if config.name in BRANCH_A_PIPELINE_NAMES:
+            # iter-14 Branch A1 / A2: v11 gather → Sonnet adjudicator.
+            # Inherits v11 toggle set verbatim; the only thing that changes
+            # is the final-verdict source. A2 also scrapes top 3 citations.
+            if not anthropic_api_key:
+                raise ValueError(
+                    "v14_branch_a* pipelines require ANTHROPIC_API_KEY in .env."
+                )
+            from tools.check_business_branch_a import check_business_branch_a
+            result = check_business_branch_a(
+                perplexity_api_key=api_key,
+                anthropic_api_key=anthropic_api_key,
+                name=name,
+                website=website,
+                city=city,
+                state=state,
+                enable_citation_scraping=(config.name == "v14_branch_a2"),
+                metadata=None,  # A1/A2 honor v11 use_metadata=False
+                pipeline_fingerprint=pipeline_fp,
+            )
+        elif three_pass:
             # 3-pass mode does not currently support FB recency or metadata
             # injection (the cost would triple). It still honors
             # marketplace-residue and the pipeline fingerprint.
@@ -349,6 +372,11 @@ def main(argv: list[str] | None = None) -> None:
         print("ERROR: --verify-flagged and --3pass are mutually exclusive.", file=sys.stderr)
         sys.exit(1)
     config = get_pipeline_config(args.pipeline)
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    if config.name in BRANCH_A_PIPELINE_NAMES and not anthropic_key:
+        print("ERROR: --pipeline v14_branch_a* requires ANTHROPIC_API_KEY in .env",
+              file=sys.stderr)
+        sys.exit(1)
     out_df = rerun_sample(
         sample_csv=args.sample,
         input_xlsx=args.input_xlsx,
@@ -357,6 +385,7 @@ def main(argv: list[str] | None = None) -> None:
         workers=args.workers,
         verify_flagged=args.verify_flagged,
         three_pass=args.three_pass,
+        anthropic_api_key=anthropic_key,
     )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)

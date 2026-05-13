@@ -129,11 +129,42 @@ V12_FULL = PipelineConfig(
 )
 
 
+# ── iter-14 spike branches ────────────────────────────────────────────────────
+#
+# Branch A1: v11 toggles inherited verbatim. The only thing that changes vs.
+# v11 is the final verdict source — Sonnet adjudicator instead of Perplexity
+# prose + Haiku audit. The toggle table below is identical to V11; the
+# adjudicator swap lives in the runner (eval/rerun_sample.py) routing on
+# `config.name == "v14_branch_a1"`. See plan §Phase 2.a1.
+V14_BRANCH_A1 = PipelineConfig(
+    name="v14_branch_a1",
+    use_facebook_recency=True,
+    use_instagram_fallback=False,
+    use_metadata=False,
+    use_marketplace_residue=False,  # logic moved into adjudicator prompt
+    use_rule_scorer=True,
+    verify_flagged=True,
+)
+
+# Branch A2: A1 + Firecrawl scrape of top 3 Perplexity citations.
+V14_BRANCH_A2 = PipelineConfig(
+    name="v14_branch_a2",
+    use_facebook_recency=True,
+    use_instagram_fallback=False,
+    use_metadata=False,
+    use_marketplace_residue=False,
+    use_rule_scorer=True,
+    verify_flagged=True,
+)
+
+
 PIPELINE_REGISTRY: dict[str, PipelineConfig] = {
     V10.name: V10,
     V11.name: V11,
     V12_CURRENT_PROD.name: V12_CURRENT_PROD,
     V12_FULL.name: V12_FULL,
+    V14_BRANCH_A1.name: V14_BRANCH_A1,
+    V14_BRANCH_A2.name: V14_BRANCH_A2,
 }
 
 PIPELINE_NAMES: tuple[str, ...] = tuple(PIPELINE_REGISTRY.keys())
