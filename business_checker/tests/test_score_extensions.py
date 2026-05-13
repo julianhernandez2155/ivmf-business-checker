@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from eval.compare_configs import compare
+from eval.compare_configs import compare, compare_n
 from eval.score import (
     _compute_canonical_metrics,
     _count_harmful_flips,
@@ -260,3 +260,91 @@ class TestCompareConfigs:
         assert exit_code == 1
         # Verdict column should contain the red marker.
         assert "❌" in table
+
+
+# ── compare_n (iter-14 Phase 1 step 2) ───────────────────────────────────────
+
+class TestCompareN:
+    def test_two_inputs_matches_legacy_compare(self, tmp_path):
+        baseline = _make_labeled_csv(tmp_path, "base", [
+            ("Active", "Active"),
+            ("Likely Closed", "Likely Closed"),
+        ])
+        candidate = _make_labeled_csv(tmp_path, "cand", [
+            ("Active", "Active"),
+            ("Likely Closed", "Likely Closed"),
+        ])
+        legacy_table, legacy_exit = compare(baseline, candidate)
+        n_table, n_exit = compare_n([("v11", baseline), ("a1", candidate)])
+        assert legacy_exit == n_exit == 0
+        # Both tables must mention every metric label.
+        for spec in ("Decisive accuracy", "Harmful flips (total)"):
+            assert spec in legacy_table and spec in n_table
+
+    def test_three_inputs_lists_all_candidates(self, tmp_path):
+        baseline = _make_labeled_csv(tmp_path, "base", [
+            ("Active", "Active"),
+            ("Likely Closed", "Likely Closed"),
+        ])
+        cand_a = _make_labeled_csv(tmp_path, "a1", [
+            ("Active", "Active"),
+            ("Likely Closed", "Likely Closed"),
+        ])
+        cand_b = _make_labeled_csv(tmp_path, "b", [
+            ("Active", "Active"),
+            ("Likely Closed", "Likely Closed"),
+        ])
+        table, exit_code = compare_n(
+            [("v11", baseline), ("a1", cand_a), ("b", cand_b)]
+        )
+        # Header must list every label and its delta column.
+        assert "| v11 |" in table
+        assert "| a1 |" in table
+        assert "| b |" in table
+        assert "Δ a1" in table
+        assert "Δ b" in table
+        assert exit_code == 0
+
+    def test_four_inputs_iter14_decision_shape(self, tmp_path):
+        # 100 rows so a single flip moves decisive_accuracy by 1pp (< 2pp noise).
+        # Baseline + candidates are all 100% correct except a1 has one harmful flip.
+        good_pairs = [("Active", "Active")] * 50 + [("Likely Closed", "Likely Closed")] * 50
+        a1_pairs = good_pairs[:-1] + [("Likely Closed", "Active")]  # 1 harmful flip
+
+        baseline = _make_labeled_csv(tmp_path, "v11", good_pairs)
+        a1 = _make_labeled_csv(tmp_path, "a1", a1_pairs)
+        a2 = _make_labeled_csv(tmp_path, "a2", good_pairs)
+        b = _make_labeled_csv(tmp_path, "b", good_pairs)
+        table, exit_code = compare_n([
+            ("v11", baseline), ("a1", a1), ("a2", a2), ("b", b),
+        ])
+        # 1 harmful flip vs. baseline 0 is within HARMFUL_NOISE (=1) → ⚠️, not ❌.
+        # 1pp decisive drop is within DECISIVE_NOISE_PP (2pp).
+        assert exit_code == 0
+        assert "Verdict a1" in table
+        assert "Verdict b" in table
+
+    def test_first_input_is_baseline_for_verdict(self, tmp_path):
+        # If baseline is strong and candidates regress, exit must be 1.
+        baseline = _make_labeled_csv(tmp_path, "v11", [
+            ("Active", "Active"),
+            ("Likely Closed", "Likely Closed"),
+        ])
+        bad = _make_labeled_csv(tmp_path, "bad", [
+            ("Likely Closed", "Active"),
+            ("Likely Closed", "Active"),
+            ("Likely Closed", "Active"),
+            ("Likely Closed", "Active"),
+            ("Likely Closed", "Active"),
+        ])
+        ok = _make_labeled_csv(tmp_path, "ok", [
+            ("Active", "Active"),
+            ("Likely Closed", "Likely Closed"),
+        ])
+        _, exit_code = compare_n([("v11", baseline), ("bad", bad), ("ok", ok)])
+        assert exit_code == 1
+
+    def test_one_input_raises(self, tmp_path):
+        only = _make_labeled_csv(tmp_path, "only", [("Active", "Active")])
+        with pytest.raises(ValueError, match="at least 2 inputs"):
+            compare_n([("only", only)])
