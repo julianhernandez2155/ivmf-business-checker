@@ -8,6 +8,14 @@ Usage (CLI):
     python -m eval.score \\
         --labeled eval/datasets/bmosg_v1_eval_labeled.csv \\
         --out-dir eval/reports/bmosg_v1/
+
+Iter 13 extensions:
+    Adds `decisive_accuracy`, `harmful_flips_total`,
+    `harmful_flips_active_to_closed`, `harmful_flips_closed_to_active`,
+    `review_queue_size`, and a `slices` dict broken down by reachability
+    category. These are the metrics the production runner is being
+    optimized against; surfacing them in the score-API removes the manual
+    analysis step from every iteration.
 """
 
 from __future__ import annotations
@@ -15,6 +23,7 @@ from __future__ import annotations
 import argparse
 import logging
 import math
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -89,6 +98,139 @@ def _try_wilson_statsmodels(successes: int, total: int) -> tuple[float, float]:
 # Markdown helpers
 # ---------------------------------------------------------------------------
 
+def _normalize_name(value: Any) -> str:
+    """Lowercase + strip punctuation + collapse whitespace, NaN-safe.
+
+    Used to join the labeled CSV against `bmosg_v1_reachability_tags.csv`
+    even when one side has `Fundraiser Blankets®` and the other has
+    `Fundraiser Blankets`.
+    """
+    if value is None:
+        return ""
+    try:
+        if value != value:  # NaN
+            return ""
+    except Exception:
+        pass
+    text = str(value).strip().lower()
+    if text == "nan":
+        return ""
+    text = re.sub(r"[^\w\s]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _decisive_mask(predicted: pd.Series) -> pd.Series:
+    """Boolean mask: rows where the system committed to a non-Uncertain verdict.
+
+    Per `docs/EVAL_BASELINES.md` definition: decisive means Active, Likely
+    Closed, OR No Web Presence. Only `Uncertain` is excluded — both from
+    the numerator and denominator of `decisive_accuracy`.
+    """
+    return predicted != "Uncertain"
+
+
+def _count_harmful_flips(predicted: pd.Series, human: pd.Series) -> tuple[int, int]:
+    """Return (active_to_closed, closed_to_active) harmful-flip counts.
+
+    `active_to_closed`: predicted=Active, human=Likely Closed
+        (false positive on Active — would trigger wasted outreach)
+    `closed_to_active`: predicted=Likely Closed, human=Active
+        (false negative on Active — would skip a real customer)
+
+    Tracked separately so a regression in one direction can't hide behind
+    an improvement in the other.
+    """
+    a_to_c = int(((predicted == "Active") & (human == "Likely Closed")).sum())
+    c_to_a = int(((predicted == "Likely Closed") & (human == "Active")).sum())
+    return a_to_c, c_to_a
+
+
+def _compute_canonical_metrics(df: pd.DataFrame) -> dict[str, Any]:
+    """Compute the iter-13 extended metrics on a labeled DataFrame.
+
+    Pre-condition: `df` has been filtered to labeled rows only
+    (no NaN/empty/Unable-to-Determine human labels).
+    """
+    n = len(df)
+    if n == 0:
+        return {
+            "n": 0,
+            "decisive_accuracy": None,
+            "decisive_n": 0,
+            "harmful_flips_total": 0,
+            "harmful_flips_active_to_closed": 0,
+            "harmful_flips_closed_to_active": 0,
+        }
+
+    predicted = df["predicted_status"]
+    human = df["human_label"]
+
+    decisive_mask = _decisive_mask(predicted)
+    decisive_n = int(decisive_mask.sum())
+    if decisive_n > 0:
+        agreements = int(
+            (predicted[decisive_mask] == human[decisive_mask]).sum()
+        )
+        decisive_accuracy = agreements / decisive_n
+    else:
+        decisive_accuracy = None
+
+    a_to_c, c_to_a = _count_harmful_flips(predicted, human)
+
+    return {
+        "n": int(n),
+        "decisive_accuracy": decisive_accuracy,
+        "decisive_n": decisive_n,
+        "harmful_flips_total": a_to_c + c_to_a,
+        "harmful_flips_active_to_closed": a_to_c,
+        "harmful_flips_closed_to_active": c_to_a,
+    }
+
+
+def _build_slices(
+    df: pd.DataFrame,
+    tags_path: Path | None,
+) -> dict[str, dict[str, Any]]:
+    """Compute per-reachability-bucket metrics by joining on normalized name.
+
+    Returns a dict keyed by reachability bucket. Rows without a reachability
+    tag are placed in `untagged` and a warning is logged. The reachability
+    tag CSV is optional — if missing, only an `all` slice is returned.
+    """
+    slices: dict[str, dict[str, Any]] = {"all": _compute_canonical_metrics(df)}
+
+    if tags_path is None or not Path(tags_path).exists():
+        if tags_path is not None:
+            logger.warning(
+                "Reachability tags file not found: %s — skipping slice metrics",
+                tags_path,
+            )
+        return slices
+
+    tags_df = pd.read_csv(tags_path)
+    tags_df["_join_key"] = tags_df["name"].apply(_normalize_name)
+    df = df.copy()
+    df["_join_key"] = df["name"].apply(_normalize_name)
+
+    merged = df.merge(
+        tags_df[["_join_key", "reachability"]], on="_join_key", how="left"
+    )
+
+    untagged = merged["reachability"].isna().sum()
+    if untagged:
+        logger.warning(
+            "%d rows have no reachability tag — placed in 'untagged' bucket", untagged
+        )
+        merged.loc[merged["reachability"].isna(), "reachability"] = "untagged"
+
+    for bucket in sorted(merged["reachability"].unique()):
+        bucket_df = merged[merged["reachability"] == bucket]
+        slices[bucket] = _compute_canonical_metrics(bucket_df)
+
+    return slices
+
+
 def _md_table(headers: list[str], rows: list[list[Any]]) -> str:
     """Render a list of rows as a markdown table string.
 
@@ -115,20 +257,30 @@ def _md_table(headers: list[str], rows: list[list[Any]]) -> str:
 def score(
     labeled_csv: Path | str,
     out_dir: Path | str | None = None,
+    reachability_tags: Path | str | None = None,
 ) -> dict:
     """Compute eval metrics and write a markdown report.
 
     Args:
-        labeled_csv: Path to a labeled sample CSV.  Required columns:
+        labeled_csv: Path to a labeled sample CSV. Required columns:
             predicted_status, predicted_confidence (int or str coercible to int),
-            human_label.
+            human_label. Optional column: `requires_review` for queue-size
+            metric.
         out_dir: Directory to write report.md and confusion_matrix.csv.
             Defaults to eval/reports/.
+        reachability_tags: Optional path to a reachability-tag CSV with
+            `name` + `reachability` columns. When provided, the result
+            dict's `slices` key is populated with per-bucket metrics.
+            Defaults to `eval/datasets/bmosg_v1_reachability_tags.csv`
+            relative to CWD when present.
 
     Returns:
-        dict with keys: overall_agreement, agreement_ci_low, agreement_ci_high,
-        per_status (dict), confusion_matrix (list[list[int]]),
-        calibration (list[dict]).
+        Dict with keys:
+            overall_agreement, agreement_ci_low, agreement_ci_high,
+            per_status, confusion_matrix, calibration (legacy),
+            decisive_accuracy, decisive_n, harmful_flips_total,
+            harmful_flips_active_to_closed, harmful_flips_closed_to_active,
+            review_queue_size, slices (iter 13 extensions).
     """
     labeled_csv = Path(labeled_csv)
     if not labeled_csv.exists():
@@ -252,6 +404,38 @@ def score(
     )
 
     # -----------------------------------------------------------------------
+    # Iter-13 canonical metrics: decisive accuracy, harmful flips (both
+    # directions), review-queue size, reachability slices. These are the
+    # metrics every config change is judged against.
+    # -----------------------------------------------------------------------
+    canonical = _compute_canonical_metrics(df)
+
+    if "requires_review" in df.columns:
+        # Pandas casts bools-as-string to object; coerce safely.
+        review_queue_size = int(
+            df["requires_review"].astype(str).str.lower().isin(
+                {"true", "1", "yes"}
+            ).sum()
+        )
+    else:
+        review_queue_size = 0
+
+    if reachability_tags is None:
+        # Best-effort default: look next to the labeled CSV first, then
+        # the canonical project location relative to CWD.
+        default_tag_paths = [
+            labeled_csv.parent / "bmosg_v1_reachability_tags.csv",
+            Path("eval/datasets/bmosg_v1_reachability_tags.csv"),
+        ]
+        for candidate in default_tag_paths:
+            if candidate.exists():
+                reachability_tags = candidate
+                break
+    slices = _build_slices(
+        df, Path(reachability_tags) if reachability_tags else None
+    )
+
+    # -----------------------------------------------------------------------
     # Build markdown report
     # -----------------------------------------------------------------------
     dataset_name = labeled_csv.stem
@@ -288,6 +472,48 @@ def score(
             disagree_counts.values.tolist(),
         )
 
+    # Iter-13 canonical metrics table for the report.
+    dec_acc = canonical["decisive_accuracy"]
+    canonical_md = _md_table(
+        ["Metric", "Value"],
+        [
+            [
+                "decisive_accuracy",
+                f"{dec_acc:.1%} (n={canonical['decisive_n']})"
+                if dec_acc is not None else f"— (n={canonical['decisive_n']})",
+            ],
+            ["harmful_flips_total", canonical["harmful_flips_total"]],
+            [
+                "harmful_flips_active_to_closed",
+                canonical["harmful_flips_active_to_closed"],
+            ],
+            [
+                "harmful_flips_closed_to_active",
+                canonical["harmful_flips_closed_to_active"],
+            ],
+            ["review_queue_size", review_queue_size],
+        ],
+    )
+
+    def _fmt_acc(metrics: dict) -> str:
+        v = metrics.get("decisive_accuracy")
+        return f"{v:.1%}" if v is not None else "—"
+
+    slice_rows = []
+    for bucket, metrics in slices.items():
+        slice_rows.append([
+            bucket,
+            metrics["n"],
+            _fmt_acc(metrics),
+            metrics["harmful_flips_total"],
+            metrics["harmful_flips_active_to_closed"],
+            metrics["harmful_flips_closed_to_active"],
+        ])
+    slices_md = _md_table(
+        ["Slice", "n", "Decisive acc.", "Harmful (total)", "A→C", "C→A"],
+        slice_rows,
+    )
+
     report_md = f"""# Eval Report — {dataset_name}
 
 **Generated:** {now_str}
@@ -298,6 +524,14 @@ def score(
 ## Headline
 
 **Overall agreement: {overall_agreement:.1%} (95% Wilson CI: {ci_low:.1%}–{ci_high:.1%}, n={n_labeled})**
+
+## Canonical metrics (iter 13)
+
+{canonical_md}
+
+## Slices (by reachability)
+
+{slices_md}
 
 ## Per-status metrics
 
@@ -329,6 +563,14 @@ Rows = human label (true), columns = predicted label (AI).
         "per_status": per_status,
         "confusion_matrix": cm_list,
         "calibration": calibration,
+        # Iter-13 canonical metrics (per docs/EVAL_BASELINES.md definitions).
+        "decisive_accuracy": canonical["decisive_accuracy"],
+        "decisive_n": canonical["decisive_n"],
+        "harmful_flips_total": canonical["harmful_flips_total"],
+        "harmful_flips_active_to_closed": canonical["harmful_flips_active_to_closed"],
+        "harmful_flips_closed_to_active": canonical["harmful_flips_closed_to_active"],
+        "review_queue_size": review_queue_size,
+        "slices": slices,
     }
 
 
@@ -349,6 +591,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Directory for report.md + confusion_matrix.csv (default: eval/reports/).",
     )
+    parser.add_argument(
+        "--reachability-tags",
+        type=Path,
+        default=None,
+        help="Optional path to a reachability-tag CSV. Defaults to the "
+             "canonical project location when present.",
+    )
     return parser
 
 
@@ -356,9 +605,22 @@ def main(argv: list[str] | None = None) -> None:
     """CLI entry point."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = _build_parser().parse_args(argv)
-    result = score(labeled_csv=args.labeled, out_dir=args.out_dir)
+    result = score(
+        labeled_csv=args.labeled,
+        out_dir=args.out_dir,
+        reachability_tags=args.reachability_tags,
+    )
     print(f"Overall agreement: {result['overall_agreement']:.1%}")
     print(f"95% Wilson CI: {result['agreement_ci_low']:.1%} – {result['agreement_ci_high']:.1%}")
+    dec_acc = result.get("decisive_accuracy")
+    if dec_acc is not None:
+        print(f"Decisive accuracy: {dec_acc:.1%} (n={result['decisive_n']})")
+    print(
+        f"Harmful flips: total={result['harmful_flips_total']} "
+        f"(A→C={result['harmful_flips_active_to_closed']}, "
+        f"C→A={result['harmful_flips_closed_to_active']})"
+    )
+    print(f"Review queue size: {result['review_queue_size']}")
 
 
 if __name__ == "__main__":
