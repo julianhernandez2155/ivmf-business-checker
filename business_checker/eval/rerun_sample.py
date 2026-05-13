@@ -38,6 +38,11 @@ from tools.check_business import (  # noqa: E402
     check_business_3pass,
     check_business_with_verification,
 )
+from tools.pipeline_configs import (  # noqa: E402
+    PIPELINE_NAMES,
+    PipelineConfig,
+    get_pipeline_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,37 +55,56 @@ def _load_input_rows(xlsx_path: Path) -> dict[int, dict]:
     Business Checker runner uses when writing checkpoints.
 
     Returns:
-        Dict {row_index: {name, website, city, state}}.
+        Dict {row_index: {name, website, city, state, metadata}}.
+        `metadata` is a BusinessMetadata instance with optional fields
+        populated from the spreadsheet.
     """
+    from tools.business_metadata import BusinessMetadata, _coerce_to_date
+    from tools.columns import detect_columns
+
     wb = openpyxl.load_workbook(xlsx_path, read_only=True, data_only=True)
     ws = wb.active
     rows = list(ws.rows)
     wb.close()
 
-    headers = [str(c.value or "").strip().lower() for c in rows[0]]
+    raw_headers = [c.value for c in rows[0]]
+    col_map = detect_columns(raw_headers)
 
-    def find_col(*candidates: str) -> int | None:
-        for cand in candidates:
-            for idx, h in enumerate(headers):
-                if cand in h:
-                    return idx
-        return None
-
-    name_idx = find_col("name", "business name", "company")
-    website_idx = find_col("website", "url", "site", "link")
-    city_idx = find_col("city", "town", "municipality")
-    state_idx = find_col("state", "province", "region")
-
-    if name_idx is None:
+    if col_map.get("name") is None:
         raise ValueError(f"Could not find a name column in {xlsx_path}")
+
+    def _cell_str(row: tuple, key: str) -> str:
+        idx = col_map.get(key)
+        if idx is None or idx >= len(row):
+            return ""
+        v = row[idx].value
+        return str(v).strip() if v is not None else ""
+
+    def _cell_date(row: tuple, key: str):
+        idx = col_map.get(key)
+        if idx is None or idx >= len(row):
+            return None
+        return _coerce_to_date(row[idx].value)
 
     out: dict[int, dict] = {}
     for sheet_idx, row in enumerate(rows[1:], start=2):
+        first = _cell_str(row, "first_name")
+        last = _cell_str(row, "last_name")
+        owner = " ".join(p for p in (first, last) if p) or None
+
+        metadata = BusinessMetadata(
+            owner_name=owner,
+            category=_cell_str(row, "category") or None,
+            description=_cell_str(row, "description") or None,
+            date_added=_cell_date(row, "date_added"),
+            date_verified=_cell_date(row, "date_verified"),
+        )
         out[sheet_idx] = {
-            "name": str(row[name_idx].value or "").strip() if name_idx is not None else "",
-            "website": str(row[website_idx].value or "").strip() if website_idx is not None else "",
-            "city": str(row[city_idx].value or "").strip() if city_idx is not None else "",
-            "state": str(row[state_idx].value or "").strip() if state_idx is not None else "",
+            "name": _cell_str(row, "name"),
+            "website": _cell_str(row, "website"),
+            "city": _cell_str(row, "city"),
+            "state": _cell_str(row, "state"),
+            "metadata": metadata,
         }
     return out
 
@@ -89,6 +113,7 @@ def rerun_sample(
     sample_csv: Path,
     input_xlsx: Path,
     api_key: str,
+    config: PipelineConfig,
     workers: int = 3,
     verify_flagged: bool = False,
     three_pass: bool = False,
@@ -100,7 +125,12 @@ def rerun_sample(
         sample_csv: Path to a labeled sample CSV (output of eval/sample.py).
         input_xlsx: Path to the original input xlsx (for fresh field lookup).
         api_key: PERPLEXITY_API_KEY.
+        config: PipelineConfig that pins every toggle (since iter 13). Eval
+            and production share the same configs so they cannot silently
+            diverge.
         workers: Concurrent worker count.
+        verify_flagged: CLI override on top of `config.verify_flagged`.
+        three_pass: Run 3 passes per row instead of single or verified.
 
     Returns:
         DataFrame with the same shape as input but with refreshed predicted_*
@@ -111,6 +141,9 @@ def rerun_sample(
 
     refreshed_rows: list[dict] = []
     rerun_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    effective_verify_flagged = bool(config.verify_flagged or verify_flagged)
+    pipeline_fp = config.fingerprint()
+    logger.info("Pipeline: %s (fp=%s) — %s", config.name, pipeline_fp, config.as_log_dict())
 
     def process(row_dict: dict) -> dict:
         idx = int(row_dict["row_index"])
@@ -120,8 +153,14 @@ def rerun_sample(
         website = input_data.get("website") or str(row_dict.get("website", ""))
         city = input_data.get("city") or str(row_dict.get("city", ""))
         state = input_data.get("state") or str(row_dict.get("state", ""))
+        # Only pass metadata into the checker when the active config opts in.
+        extracted_metadata = input_data.get("metadata")
+        metadata = extracted_metadata if config.use_metadata else None
 
         if three_pass:
+            # 3-pass mode does not currently support FB recency or metadata
+            # injection (the cost would triple). It still honors
+            # marketplace-residue and the pipeline fingerprint.
             result = check_business_3pass(
                 api_key=api_key,
                 name=name,
@@ -129,8 +168,11 @@ def rerun_sample(
                 city=city,
                 state=state,
                 cache=None,
+                use_rule_scorer=config.use_rule_scorer,
+                use_marketplace_residue=config.use_marketplace_residue,
+                pipeline_fingerprint=pipeline_fp,
             )
-        elif verify_flagged:
+        elif effective_verify_flagged:
             result = check_business_with_verification(
                 api_key=api_key,
                 name=name,
@@ -138,6 +180,12 @@ def rerun_sample(
                 city=city,
                 state=state,
                 cache=None,
+                use_rule_scorer=config.use_rule_scorer,
+                use_facebook_recency=config.use_facebook_recency,
+                use_instagram_fallback=config.use_instagram_fallback,
+                use_marketplace_residue=config.use_marketplace_residue,
+                metadata=metadata,
+                pipeline_fingerprint=pipeline_fp,
             )
         else:
             result = check_business(
@@ -147,6 +195,12 @@ def rerun_sample(
                 city=city,
                 state=state,
                 cache=None,  # Force fresh API call — bypass cache for prompt iteration
+                use_rule_scorer=config.use_rule_scorer,
+                use_facebook_recency=config.use_facebook_recency,
+                use_instagram_fallback=config.use_instagram_fallback,
+                use_marketplace_residue=config.use_marketplace_residue,
+                metadata=metadata,
+                pipeline_fingerprint=pipeline_fp,
             )
 
         return {
@@ -227,6 +281,22 @@ def rerun_sample(
     return out_df[cols]
 
 
+class _RemovedFlagAction(argparse.Action):
+    """Argparse action that hard-errors with a migration message.
+
+    Used for `--enable-facebook-recency` and `--enable-instagram-fallback`,
+    which were removed in iter 13. Operators who copy/paste old commands
+    get an immediate, actionable error pointing at `--pipeline`.
+    """
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        parser.error(
+            f"{option_string} was removed in iter 13. "
+            f"Use --pipeline {{{','.join(PIPELINE_NAMES)}}} instead. "
+            f"See docs/2026-05-12-iter13-stabilization-plan.md."
+        )
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m eval.rerun_sample",
@@ -236,15 +306,31 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="Path to labeled sample CSV (e.g., bmosg_v1_eval_sample.csv)")
     parser.add_argument("--input-xlsx", required=True, type=Path,
                         help="Path to the original input .xlsx")
+    parser.add_argument(
+        "--pipeline", required=True, choices=PIPELINE_NAMES,
+        help="Named pipeline configuration. Required since iter 13 — "
+             "the same configs as run_checker.py, so eval cannot drift "
+             f"from production. Valid: {', '.join(PIPELINE_NAMES)}.",
+    )
     parser.add_argument("--workers", type=int, default=3)
     parser.add_argument("--out", required=True, type=Path,
                         help="Output CSV path for refreshed predictions")
     parser.add_argument("--verify-flagged", action="store_true",
-                        help="Use check_business_with_verification — runs a 2nd "
-                             "pass on rows flagged for review and merges results.")
+                        help="Force check_business_with_verification on top of "
+                             "the pipeline's verify_flagged setting (most pipelines "
+                             "already enable this).")
     parser.add_argument("--3pass", dest="three_pass", action="store_true",
                         help="Use check_business_3pass — runs 3 passes on EVERY row, "
                              "auto-trusts only when all 3 agree. 3x cost.")
+    # Removed in iter 13. Kept registered so old commands get a clear error.
+    parser.add_argument(
+        "--enable-facebook-recency", action=_RemovedFlagAction, nargs=0,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--enable-instagram-fallback", action=_RemovedFlagAction, nargs=0,
+        help=argparse.SUPPRESS,
+    )
     return parser
 
 
@@ -262,10 +348,12 @@ def main(argv: list[str] | None = None) -> None:
     if args.verify_flagged and args.three_pass:
         print("ERROR: --verify-flagged and --3pass are mutually exclusive.", file=sys.stderr)
         sys.exit(1)
+    config = get_pipeline_config(args.pipeline)
     out_df = rerun_sample(
         sample_csv=args.sample,
         input_xlsx=args.input_xlsx,
         api_key=api_key,
+        config=config,
         workers=args.workers,
         verify_flagged=args.verify_flagged,
         three_pass=args.three_pass,

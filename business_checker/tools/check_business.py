@@ -12,13 +12,16 @@ imports correctly):
 import json
 import os
 import time
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 from urllib.parse import urlparse
 
 import requests
 from pydantic import BaseModel, ValidationError
 
 from tools.scrape_website import normalize_url, scrape_website
+
+if TYPE_CHECKING:
+    from tools.business_metadata import BusinessMetadata
 
 
 # ── Perplexity API config ─────────────────────────────────────────────────────
@@ -66,6 +69,56 @@ AGGREGATOR_DOMAINS: tuple[str, ...] = (
 # Override only fires when AI hedged below this confidence — never overrides a
 # confident Uncertain (which is rare but should be respected).
 AGGREGATOR_OVERRIDE_MAX_CONFIDENCE = 70
+
+
+# ── Third-party marketplace detection ─────────────────────────────────────────
+#
+# When a business's website is dead and the only "active" signals are
+# product listings on 3rd-party marketplaces, that's marketplace residue
+# (inventory liquidation, reseller activity, archived storefront) — NOT
+# proof the business is operating. This list is checked AGAINST the
+# citations and only fires when ALL non-self citations are 3rd-party AND
+# the listings are NOT on the business's own storefront namespace.
+
+# Third-party marketplaces where ANY listing means "someone resold their
+# inventory" — not "the business is running its own store here."
+THIRD_PARTY_MARKETPLACES: tuple[str, ...] = (
+    "mammothnation.com",
+    "only.vet",
+    "onlyvet.com",
+    "thrivemarket.com",
+    "faire.com",
+    "spouse-ly.com",
+    "spouselyshop.com",
+    "veteranmarket.org",
+    "veteran-owned.com",
+    "buyveteran.com",
+    "vetcomm.us",
+    "vetfran.org",
+    # Common share-economy / dropship resellers
+    "redbubble.com", "teepublic.com", "society6.com", "zazzle.com",
+    "spreadshirt.com", "printful.com", "printify.com",
+)
+
+# Marketplace-as-owned-storefront patterns. A citation on these domains
+# is OK as a real signal IF the URL path includes the business's own
+# storefront (e.g. etsy.com/shop/foo, amazon.com/stores/bar). These are
+# substrings checked against the citation URL — we do not validate the
+# storefront identity, just that the URL shape looks owned.
+OWNED_STOREFRONT_PATTERNS: tuple[str, ...] = (
+    "etsy.com/shop/",
+    "etsy.com/people/",
+    "amazon.com/stores/",
+    ".shopify.com",       # subdomain — businesses' own Shopify stores
+    ".myshopify.com",
+    "shop.app/",
+    "squarespace.com",
+    "wixsite.com",        # treated as owned, even if low quality
+    "godaddysites.com",
+    "weebly.com",
+    "airbnb.com/rooms/",  # the host's actual listing
+    "airbnb.com/h/",
+)
 
 
 def _citation_host_path(url: str) -> str:
@@ -119,6 +172,78 @@ def _all_citations_are_aggregators(
     if not external:
         return False
     return all(_is_aggregator_url(u) for u in external)
+
+
+def _is_owned_storefront(url: str) -> bool:
+    """True if the URL looks like the business's OWN storefront on a
+    marketplace platform (Etsy shop, Shopify subdomain, Airbnb listing).
+
+    Owned storefronts are real signals of activity — distinct from
+    third-party-marketplace residue (someone reselling the business's
+    inventory after they closed).
+    """
+    target = _citation_host_path(url)
+    if not target:
+        return False
+    return any(pattern in target for pattern in OWNED_STOREFRONT_PATTERNS)
+
+
+def _is_third_party_marketplace(url: str) -> bool:
+    """True if URL is on a domain that hosts reseller/dropship listings.
+
+    These are the failure pattern from iter 10/11: Mammoth Nation listing
+    a closed business's beard oil, glamfumes.com selling a discontinued
+    perfume line, etc. Activity here does NOT mean the original business
+    is operating.
+    """
+    target = _citation_host_path(url)
+    if not target:
+        return False
+    return any(marker in target for marker in THIRD_PARTY_MARKETPLACES)
+
+
+def _all_signals_are_residue(
+    citations: list[str], own_website: str = "",
+) -> bool:
+    """True iff every non-self citation is either a third-party marketplace
+    or an aggregator/directory — AND at least one such citation exists.
+
+    Owned storefronts (etsy.com/shop/foo, *.shopify.com) DO NOT count as
+    residue — they're real activity signals.
+
+    This catches the iter 10/11 failure pattern: dead website + product
+    listings on Mammoth Nation + ZoomInfo record = inventory liquidation,
+    not a running business.
+    """
+    own_host = ""
+    if own_website:
+        try:
+            own_host = (urlparse(own_website).hostname or "").lower()
+            if own_host.startswith("www."):
+                own_host = own_host[4:]
+        except Exception:
+            own_host = ""
+
+    external = []
+    for url in citations:
+        host = _citation_host_path(url).split("/", 1)[0]
+        if own_host and host == own_host:
+            continue
+        external.append(url)
+
+    if not external:
+        return False
+
+    # Each external citation must be EITHER an aggregator OR a 3rd-party
+    # marketplace (and NOT an owned storefront).
+    for url in external:
+        if _is_owned_storefront(url):
+            return False  # at least one real signal — not residue
+        if _is_aggregator_url(url) or _is_third_party_marketplace(url):
+            continue  # residue
+        return False  # an unclassified URL — could be real
+
+    return True
 
 
 # ── Triage flag (production calibration thresholds) ───────────────────────────
@@ -303,6 +428,12 @@ def check_business(
     state: str,
     max_retries: int = MAX_RETRIES,
     cache=None,
+    use_rule_scorer: bool = True,
+    use_facebook_recency: bool = False,
+    use_instagram_fallback: bool = False,
+    use_marketplace_residue: bool = True,
+    metadata: "BusinessMetadata | None" = None,
+    pipeline_fingerprint: str = "",
 ) -> dict:
     """
     Research a business and return its operational status.
@@ -323,13 +454,26 @@ def check_business(
     """
     website      = normalize_url(website)
 
-    # Cache lookup — skip API call if we have a fresh result
+    # Cache lookup — skip API call if we have a fresh result.
+    # Cache key (since iter 13) includes the normalized website and the
+    # pipeline_fingerprint, so different pipelines never share cached
+    # verdicts and the same business under a corrected URL is not a hit.
     if cache is not None:
-        cached = cache.get(name, city, state)
+        cached = cache.get(name, website, city, state, pipeline_fingerprint)
         if cached is not None:
             return cached
     location     = ", ".join(filter(None, [city, state]))
     website_note = f"Their listed website is: {website}" if website else "No website listed."
+
+    # ── Layer 0.5: Dataset metadata block (optional) ─────────────────────────
+    # When the caller passes BusinessMetadata, inject the structured block
+    # at the top of the prompt. The owner name helps with social searches,
+    # category lets the model reject mismatched results, and the dates let
+    # the model weight staleness signals correctly (a 3-year-old record
+    # with a "coming soon" page is a near-certain closure).
+    metadata_section = ""
+    if metadata is not None and not metadata.is_empty:
+        metadata_section = "\n" + metadata.to_prompt_block() + "\n"
 
     # Scrape the website directly so Perplexity has real page content to reason
     # about, rather than relying purely on search for sites it can't index well.
@@ -385,10 +529,112 @@ def check_business(
                 scrape_domain_dead = True
             # Generic failures (SSL issues, blocked, etc.) — no signal, let Perplexity search normally.
 
+    # ── Layer 1.5: Facebook recency signal (optional) ────────────────────────
+    # When enabled, look up the business's Facebook page and inject the most
+    # recent post date as a structured fact. Closes the "unreachable-social"
+    # gap from iter 10 — businesses whose decisive closure signal is a stale
+    # FB page that Perplexity's search doesn't surface.
+    #
+    # Costs ~$0.005–$0.025 per business on Apify (paid separately from
+    # Perplexity). Falls through silently when APIFY_API_TOKEN is unset.
+    fb_section = ""
+    fb_cost = 0.0
+    fb_signal = None  # captured so the IG fallback below can read it
+    if use_facebook_recency:
+        try:
+            from tools.check_facebook_recency import check_facebook_recency
+            fb_signal = check_facebook_recency(name, city, state, website=website)
+            fb_cost = fb_signal.cost_usd
+
+            # Build the FB section. The interpretation of "no FB found"
+            # depends on whether the website itself is alive:
+            #   - Site dead + no FB → meaningful corroboration of closure
+            #   - Site alive + no FB → neutral; many real businesses don't use FB
+            #   - FB found with date → use the signal's own interpretation
+            if fb_signal.skipped or fb_signal.error is not None:
+                evidence_line = fb_signal.to_evidence_line()
+                if evidence_line:
+                    fb_section = f"\n{evidence_line}\n"
+            elif not fb_signal.found:
+                # No FB page located. Frame depends on site state.
+                if scrape_domain_dead:
+                    fb_section = (
+                        "\nKNOWN FACEBOOK SIGNAL: No matching Facebook page found "
+                        "AND the listed website is dead. Together these corroborate "
+                        "a closure signal — but are not definitive alone.\n"
+                    )
+                else:
+                    fb_section = (
+                        "\nKNOWN FACEBOOK SIGNAL: No matching Facebook page found. "
+                        "Many legitimate businesses (Etsy crafters, Amazon sellers, "
+                        "Airbnb hosts, niche B2B firms) operate without Facebook — "
+                        "treat this as NEUTRAL, not a closure signal. Rely on the "
+                        "website content and other channels to make the verdict.\n"
+                    )
+            else:
+                # FB page found with a date — the signal's own interpretation
+                # already encodes recency context; pass through verbatim.
+                evidence_line = fb_signal.to_evidence_line()
+                fb_section = (
+                    f"\n{evidence_line}\n"
+                    "Weight this Facebook signal alongside the website and search "
+                    "results — it is one channel, not the verdict.\n"
+                )
+        except Exception as exc:  # noqa: BLE001 — never crash on FB lookup
+            fb_section = f"\nFACEBOOK CHECK ERROR: {type(exc).__name__}\n"
+
+    # ── Layer 1.6: Instagram fallback (optional) ─────────────────────────────
+    # IG runs as a defensive backup, NOT in parallel. Two conditions trigger it:
+    #   C1: FB returned found=False after exhausting all candidates
+    #   C2: FB returned found=True but bucket=stale (possible platform migration)
+    # When FB returned bucket=recent or bucket=dormant, IG is skipped — the FB
+    # signal is decisive enough on its own and IG would just add cost.
+    ig_section = ""
+    ig_cost = 0.0
+    if use_instagram_fallback and use_facebook_recency and fb_signal is not None:
+        from datetime import date as _date
+        fb_bucket = (
+            fb_signal.staleness_bucket(today=_date.today())
+            if fb_signal.found and fb_signal.last_post_date else None
+        )
+        should_try_ig = (
+            (not fb_signal.found and not fb_signal.skipped)
+            or fb_bucket == "stale"
+        )
+        if should_try_ig:
+            try:
+                from tools.check_instagram_recency import check_instagram_recency
+                ig_signal = check_instagram_recency(name, city, state, website=website)
+                ig_cost = ig_signal.cost_usd
+
+                if ig_signal.skipped:
+                    pass  # silent — pipeline already has FB story
+                elif ig_signal.error is not None:
+                    ig_section = f"\nINSTAGRAM CHECK ERROR: {ig_signal.error}\n"
+                elif not ig_signal.found:
+                    ig_section = (
+                        "\nKNOWN INSTAGRAM SIGNAL: No matching Instagram page found "
+                        "either. Combined with the Facebook check above, the social "
+                        "channel evidence is absent — weight closure signals from "
+                        "the website accordingly.\n"
+                    )
+                else:
+                    evidence_line = ig_signal.to_evidence_line()
+                    ig_section = (
+                        f"\n{evidence_line}\n"
+                        "Weight the Instagram signal alongside Facebook — many "
+                        "businesses migrate from FB to IG over time, so a recent IG "
+                        "post can outweigh a stale FB page.\n"
+                    )
+            except Exception as exc:  # noqa: BLE001 — never crash on IG lookup
+                ig_section = f"\nINSTAGRAM CHECK ERROR: {type(exc).__name__}\n"
+
     business_prompt = (
         f'Business name: "{name}"\n'
         f"Location on file: {location}\n"
-        f"{website_note}{scrape_section}\n"
+        f"{website_note}"
+        f"{metadata_section}"
+        f"{scrape_section}{fb_section}{ig_section}\n"
         "LOCATION NOTE: The location above is where this business is registered or based, "
         "not necessarily where it operates. Many veteran-owned businesses sell nationally, "
         "work online, or are home-based. Never require the city or state to appear on the "
@@ -436,7 +682,7 @@ def check_business(
             data      = response.json()
             content   = data["choices"][0]["message"]["content"]
             citations = data.get("citations", [])
-            cost      = _calculate_cost(data.get("usage", {})) + scrape_cost
+            cost      = _calculate_cost(data.get("usage", {})) + scrape_cost + fb_cost + ig_cost
 
             parsed = BusinessStatus.model_validate_json(content)
 
@@ -493,11 +739,85 @@ def check_business(
                     "no social, maps, or press signal found] " + evidence
                 )
 
+            # Marketplace-residue override (iter 12).
+            # Fires when AI called Active@high based ONLY on third-party
+            # marketplace listings (Mammoth Nation, Only.Vet, Square.site,
+            # different-domain product pages) AND the business's own website
+            # is dead AND no FB page was found. Three corroborating closure
+            # signals → status flips to Likely Closed. If only the marketplace
+            # condition holds (site alive or FB found), we instead downgrade
+            # confidence and force review — let the human decide.
+            #
+            # The safety mechanism is that the rule excludes "owned
+            # storefront" URLs (etsy.com/shop/foo, *.shopify.com) so Etsy
+            # crafters and Shopify-only sellers are not penalized.
+            if (
+                use_marketplace_residue
+                and status == "Active"
+                and _all_signals_are_residue(citations, own_website=website)
+            ):
+                if scrape_domain_dead:
+                    # All three closure signals corroborate — flip to Closed.
+                    # (FB check happens after the Perplexity call returns;
+                    # this override runs before the rule scorer, so we rely
+                    # on the dead-site condition + residue-only citations
+                    # as the two strongest signals available at this point.
+                    # The Haiku judge in tier 2 will see the FB signal and
+                    # can adjust further.)
+                    status     = "Likely Closed"
+                    confidence = max(confidence, 70)
+                    evidence   = (
+                        "[Dead website + product listings only on 3rd-party "
+                        "marketplaces (no owned storefront) — pattern of "
+                        "inventory residue, not active business] " + evidence
+                    )
+                else:
+                    # Site is alive but every external citation is residue.
+                    # Don't flip — downgrade confidence and force review.
+                    capped = min(confidence, 65)
+                    if capped < confidence:
+                        evidence = (
+                            f"[All external citations are 3rd-party marketplace "
+                            f"residue; confidence capped {confidence}→{capped} "
+                            f"pending human review] " + evidence
+                        )
+                        confidence = capped
+
+            # ── Layer 2: rule-based confidence cap (tier 1) ──────────────────
+            # Cheap deterministic check — catches dead-Wix-Active@95 and
+            # directory-only-Active failure modes before triage. Runs on the
+            # raw evidence string (before citation appendage). If the cap
+            # drops confidence by >10 points, force human review.
+            rule_cap_note = ""
+            if use_rule_scorer:
+                try:
+                    from tools.confidence_score import cap_confidence as _cap_confidence
+                    capped, breakdown = _cap_confidence(status, evidence, confidence)
+                    if capped < confidence - 10:
+                        rule_cap_note = (
+                            f"[rule scorer capped {confidence}→{capped}: "
+                            f"{breakdown.explain()}] "
+                        )
+                        confidence = capped
+                    elif capped < confidence:
+                        # Small cap — apply silently, no forced review prefix.
+                        confidence = capped
+                except Exception:  # noqa: BLE001 — never crash on scoring
+                    pass
+
             if citations:
                 sources = ", ".join(citations[:3])  # cap at 3 URLs
                 evidence = f"{evidence} | Sources: {sources}"
 
+            if rule_cap_note:
+                evidence = rule_cap_note + evidence
+
             requires_review, review_reason = _compute_triage(status, confidence)
+            if rule_cap_note and not requires_review:
+                # Confidence dropped sharply via rule scorer — flag for review
+                # even if it still passes the triage floor.
+                requires_review = True
+                review_reason = "Rule scorer dropped confidence >10 points; verify."
 
             result = {
                 "status":          status,
@@ -511,7 +831,7 @@ def check_business(
             }
 
             if cache is not None:
-                cache.put(name, city, state, result)
+                cache.put(name, website, city, state, pipeline_fingerprint, result)
 
             return result
 
@@ -557,6 +877,10 @@ def check_business_3pass(
     state: str,
     max_retries: int = MAX_RETRIES,
     cache=None,
+    use_judge: bool = True,
+    use_rule_scorer: bool = True,
+    use_marketplace_residue: bool = True,
+    pipeline_fingerprint: str = "",
 ) -> dict:
     """Run check_business 3 times and use majority-vote stability as the
     confidence signal.
@@ -574,63 +898,113 @@ def check_business_3pass(
     Cost: 3x single-pass. Use for high-stakes batches.
     """
     pass1 = check_business(
-        api_key, name, website, city, state, max_retries=max_retries, cache=cache
+        api_key, name, website, city, state, max_retries=max_retries, cache=cache,
+        use_rule_scorer=use_rule_scorer,
+        use_marketplace_residue=use_marketplace_residue,
+        pipeline_fingerprint=pipeline_fingerprint,
     )
     if pass1.get("error") is not None:
         return pass1
 
     pass2 = check_business(
-        api_key, name, website, city, state, max_retries=max_retries, cache=None
+        api_key, name, website, city, state, max_retries=max_retries, cache=None,
+        use_rule_scorer=use_rule_scorer,
+        use_marketplace_residue=use_marketplace_residue,
+        pipeline_fingerprint=pipeline_fingerprint,
     )
     pass3 = check_business(
-        api_key, name, website, city, state, max_retries=max_retries, cache=None
+        api_key, name, website, city, state, max_retries=max_retries, cache=None,
+        use_rule_scorer=use_rule_scorer,
+        use_marketplace_residue=use_marketplace_residue,
+        pipeline_fingerprint=pipeline_fingerprint,
     )
 
-    # Collect statuses, ignoring failed passes (treat as no-vote)
-    votes = []
-    for p in (pass1, pass2, pass3):
+    # Collect (status, confidence) for non-error passes. Failed passes are
+    # NOT silently treated as no-votes — they're surfaced in the evidence so
+    # callers can see when we ran fewer than 3.
+    pass_results: list[tuple[str, int]] = []
+    failed_passes: list[int] = []
+    for idx, p in enumerate((pass1, pass2, pass3), start=1):
         if p.get("error") is None:
-            votes.append(p["status"])
+            try:
+                conf = int(p["confidence"])
+            except (ValueError, TypeError):
+                conf = 0
+            pass_results.append((p["status"], conf))
+        else:
+            failed_passes.append(idx)
 
-    if not votes:
+    if not pass_results:
         return pass1  # all 3 failed — return whatever pass 1 said
 
-    # Majority vote (Counter is in collections; use simple counting for clarity)
     vote_counts: dict[str, int] = {}
-    for v in votes:
-        vote_counts[v] = vote_counts.get(v, 0) + 1
-    majority_status = max(vote_counts, key=lambda k: vote_counts[k])
-    majority_count = vote_counts[majority_status]
-    all_agree = majority_count == len(votes) == 3
+    for s, _ in pass_results:
+        vote_counts[s] = vote_counts.get(s, 0) + 1
 
-    # Take highest confidence among the runs that voted for the majority status
-    matching_confs = []
-    for p in (pass1, pass2, pass3):
-        if p.get("error") is None and p["status"] == majority_status:
-            try:
-                matching_confs.append(int(p["confidence"]))
-            except (ValueError, TypeError):
-                pass
-    chosen_conf = max(matching_confs) if matching_confs else int(pass1.get("confidence", 0))
+    top_status = max(vote_counts, key=lambda k: vote_counts[k])
+    top_count = vote_counts[top_status]
+    n_votes = len(pass_results)
+    has_majority = top_count >= 2  # require true majority (>= 2 of <= 3 votes)
 
+    # Aggregate confidence:
+    #   - 3/3 agreement: mean of the three confidences
+    #   - 2/3 agreement: mean of the two matching passes, capped at 75
+    #     (one independent pass disagreed — cannot honestly claim >75%)
+    #   - 2/2 agreement (one pass errored): mean of two, capped at 70
+    #     (only 2 calls actually ran)
+    #   - No majority (1/1/1 split): force Uncertain at 50
+    if has_majority:
+        majority_status = top_status
+        matching_confs = [c for s, c in pass_results if s == majority_status]
+        mean_conf = sum(matching_confs) / len(matching_confs)
+        if top_count == 3:
+            chosen_conf = int(round(mean_conf))
+        elif top_count == 2 and n_votes == 3:
+            chosen_conf = min(int(round(mean_conf)), 75)
+        else:  # top_count == 2, n_votes == 2 (one pass errored)
+            chosen_conf = min(int(round(mean_conf)), 70)
+    else:
+        # Three-way split with no winner — refuse to pick.
+        majority_status = "Uncertain"
+        chosen_conf = 50
+
+    all_agree = (top_count == 3 and n_votes == 3)
     total_cost = sum(p.get("cost_usd", 0.0) for p in (pass1, pass2, pass3))
     citations = pass1.get("citations", [])  # use pass 1's citations as primary
 
-    # Decide review status
+    # Build evidence prefix and review status.
     triage_review, triage_reason = _compute_triage(majority_status, chosen_conf)
-    if not all_agree:
-        # Any disagreement → flag for review regardless of triage
+    pass_summary = (
+        f"Pass 1: {pass1['status']}, Pass 2: {pass2['status']}, Pass 3: {pass3['status']}"
+    )
+    failed_note = (
+        f" [failed passes: {','.join(str(i) for i in failed_passes)}]"
+        if failed_passes else ""
+    )
+
+    if not has_majority:
         requires_review = True
         review_reason = (
-            f"3-pass disagreement: {pass1['status']}/{pass2['status']}/{pass3['status']}. "
-            f"Majority: {majority_status} ({majority_count}/3)."
+            f"3-pass three-way split with no majority: {pass_summary}. "
+            f"Forced to Uncertain."
         )
         evidence_prefix = (
-            f"[3-pass disagreement — Pass 1: {pass1['status']}, "
-            f"Pass 2: {pass2['status']}, Pass 3: {pass3['status']}] "
+            f"[3-pass three-way split — no majority; reported as Uncertain. "
+            f"{pass_summary}]{failed_note} "
+        )
+    elif not all_agree:
+        # 2/3 majority — defensible verdict but flag for review
+        requires_review = True
+        review_reason = (
+            f"3-pass majority {top_count}/{n_votes} on {majority_status}. "
+            f"{pass_summary}."
+        )
+        evidence_prefix = (
+            f"[3-pass {top_count}/{n_votes} majority on {majority_status} — "
+            f"{pass_summary}]{failed_note} "
         )
     elif triage_review:
-        # All 3 agreed but on a status that always needs review (Uncertain, NWP)
+        # All 3 agreed but verdict-type always needs review (Uncertain, NWP)
         requires_review = True
         review_reason = (
             f"3-pass agreement on '{majority_status}', but verdict still requires review: "
@@ -638,17 +1012,69 @@ def check_business_3pass(
         )
         evidence_prefix = f"[3-pass agreement on {majority_status} — stable hedge] "
     else:
-        # All 3 agreed on an auto-trustable verdict — promote
+        # All 3 ran AND all agreed AND verdict is auto-trustable — promote
         requires_review = False
         review_reason = None
         evidence_prefix = f"[3-pass agreement: all runs returned {majority_status}] "
 
+    # ── Layer 2: rule-based confidence cap ───────────────────────────────────
+    # Cap the chosen confidence at what the evidence string actually supports.
+    # The cap is applied to Active verdicts most aggressively; closure verdicts
+    # are also capped if recent dated activity contradicts them.
+    rule_breakdown_note = ""
+    if use_rule_scorer:
+        try:
+            from tools.confidence_score import cap_confidence as _cap_confidence
+            capped, breakdown = _cap_confidence(
+                majority_status, pass1.get("evidence", ""), chosen_conf
+            )
+            if capped < chosen_conf:
+                rule_breakdown_note = (
+                    f"[rule scorer capped confidence {chosen_conf}→{capped}: "
+                    f"{breakdown.explain()}] "
+                )
+                chosen_conf = capped
+                if chosen_conf < 80 and not requires_review:
+                    requires_review = True
+                    review_reason = (review_reason or "") + " rule scorer flagged."
+        except Exception as exc:  # noqa: BLE001 — never crash on scoring
+            rule_breakdown_note = f"[rule scorer error: {type(exc).__name__}] "
+
+    # ── Layer 3: Haiku judge audit ───────────────────────────────────────────
+    judge_note = ""
+    judge_cost = 0.0
+    if use_judge:
+        try:
+            from tools.judge import apply_judge_to_verdict, audit_verdict
+            location = ", ".join(p for p in (city, state) if p)
+            judge_result = audit_verdict(
+                name=name,
+                location=location,
+                website=website,
+                verdict_status=majority_status,
+                verdict_confidence=chosen_conf,
+                evidence=pass1.get("evidence", ""),
+                pass_votes=(pass1["status"], pass2["status"], pass3["status"]),
+            )
+            judge_cost = judge_result.cost_usd
+            new_status, new_conf, note = apply_judge_to_verdict(
+                majority_status, chosen_conf, judge_result
+            )
+            judge_note = note + " "
+            if new_status != majority_status or new_conf != chosen_conf:
+                majority_status = new_status
+                chosen_conf = new_conf
+                requires_review = True
+                review_reason = (review_reason or "") + " judge intervened."
+        except Exception as exc:  # noqa: BLE001 — judge is best-effort
+            judge_note = f"[judge error: {type(exc).__name__}] "
+
     return {
         "status":          majority_status,
         "confidence":      str(chosen_conf),
-        "evidence":        evidence_prefix + pass1.get("evidence", ""),
+        "evidence":        evidence_prefix + rule_breakdown_note + judge_note + pass1.get("evidence", ""),
         "citations":       citations,
-        "cost_usd":        total_cost,
+        "cost_usd":        total_cost + judge_cost,
         "error":           None,
         "requires_review": requires_review,
         "review_reason":   review_reason,
@@ -659,6 +1085,7 @@ def check_business_3pass(
         "pass1_confidence": pass1["confidence"],
         "pass2_confidence": pass2["confidence"],
         "pass3_confidence": pass3["confidence"],
+        "judge_cost_usd":  judge_cost,
     }
 
 
@@ -672,6 +1099,13 @@ def check_business_with_verification(
     state: str,
     max_retries: int = MAX_RETRIES,
     cache=None,
+    use_judge: bool = True,
+    use_rule_scorer: bool = True,
+    use_facebook_recency: bool = False,
+    use_instagram_fallback: bool = False,
+    use_marketplace_residue: bool = True,
+    metadata: "BusinessMetadata | None" = None,
+    pipeline_fingerprint: str = "",
 ) -> dict:
     """Run check_business once. If the result is flagged for review, run a
     second pass (cache-bypassed) and merge.
@@ -692,7 +1126,13 @@ def check_business_with_verification(
     proportional to that flag rate.
     """
     pass1 = check_business(
-        api_key, name, website, city, state, max_retries=max_retries, cache=cache
+        api_key, name, website, city, state, max_retries=max_retries, cache=cache,
+        use_rule_scorer=use_rule_scorer,
+        use_facebook_recency=use_facebook_recency,
+        use_instagram_fallback=use_instagram_fallback,
+        use_marketplace_residue=use_marketplace_residue,
+        metadata=metadata,
+        pipeline_fingerprint=pipeline_fingerprint,
     )
 
     # Don't double-check API errors — they need human attention regardless.
@@ -704,8 +1144,17 @@ def check_business_with_verification(
         return pass1
 
     # Run pass 2 with cache disabled so we get a genuinely fresh search.
+    # We deliberately do NOT re-run the FB/IG lookups on pass 2 — the
+    # signals are the same on a second call and would just double the
+    # Apify cost. Metadata IS re-passed because it's free (prompt prefix).
     pass2 = check_business(
-        api_key, name, website, city, state, max_retries=max_retries, cache=None
+        api_key, name, website, city, state, max_retries=max_retries, cache=None,
+        use_rule_scorer=use_rule_scorer,
+        use_facebook_recency=False,
+        use_instagram_fallback=False,
+        use_marketplace_residue=use_marketplace_residue,
+        metadata=metadata,
+        pipeline_fingerprint=pipeline_fingerprint,
     )
 
     if pass2.get("error") is not None:
@@ -773,6 +1222,43 @@ def check_business_with_verification(
             f"[2-pass disagreement — Pass 1: {pass1['status']}, Pass 2: {pass2['status']}] "
             f"{pass1['evidence']} || Pass 2 evidence: {pass2['evidence'][:200]}"
         )
+
+    # ── Layer 3: Haiku judge audit (tier 2) ──────────────────────────────────
+    # Independent second-opinion on the merged 2-pass result. Asymmetric:
+    # judge can move verdict toward more skepticism, never less. Fails open.
+    merged["judge_cost_usd"] = 0.0
+    if use_judge:
+        try:
+            from tools.judge import apply_judge_to_verdict, audit_verdict
+            try:
+                merged_conf_int = int(merged["confidence"])
+            except (ValueError, TypeError):
+                merged_conf_int = 0
+            location = ", ".join(p for p in (city, state) if p)
+            judge_result = audit_verdict(
+                name=name,
+                location=location,
+                website=website,
+                verdict_status=merged["status"],
+                verdict_confidence=merged_conf_int,
+                evidence=pass1.get("evidence", ""),
+                pass_votes=(pass1["status"], pass2["status"], pass2["status"]),
+            )
+            merged["judge_cost_usd"] = judge_result.cost_usd
+            merged["cost_usd"] = merged.get("cost_usd", 0.0) + judge_result.cost_usd
+            new_status, new_conf, note = apply_judge_to_verdict(
+                merged["status"], merged_conf_int, judge_result,
+            )
+            merged["evidence"] = note + " " + merged["evidence"]
+            if new_status != merged["status"] or new_conf != merged_conf_int:
+                merged["status"]          = new_status
+                merged["confidence"]      = str(new_conf)
+                merged["requires_review"] = True
+                merged["review_reason"]   = (
+                    (merged.get("review_reason") or "") + " judge intervened."
+                )
+        except Exception as exc:  # noqa: BLE001 — judge is best-effort
+            merged["evidence"] = f"[judge error: {type(exc).__name__}] " + merged["evidence"]
 
     return merged
 

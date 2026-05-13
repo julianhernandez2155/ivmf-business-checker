@@ -37,6 +37,11 @@ from tools.check_business import (
 from tools.checkpoint import load_checkpoint, save_checkpoint, get_run_summary
 from tools.build_output import build_output_excel
 from tools.columns import detect_columns
+from tools.pipeline_configs import (
+    PIPELINE_NAMES,
+    PipelineConfig,
+    get_pipeline_config,
+)
 
 # ── Load environment ──────────────────────────────────────────────────────────
 
@@ -75,12 +80,19 @@ def get_cell(row: tuple, col_idx) -> str:
 # ── Main runner ───────────────────────────────────────────────────────────────
 
 def run(input_path: str, run_dir: str, api_key: str,
-        col_map: dict, workers: int, limit: int = None,
+        col_map: dict, workers: int, config: PipelineConfig,
+        limit: int = None,
         cache: ResultCache = None, verify_flagged: bool = False,
         three_pass: bool = False) -> None:
 
     checkpoint_path = os.path.join(run_dir, "checkpoint.csv")
     logger          = setup_logging(run_dir)
+
+    # Effective verify-flagged = pipeline config OR explicit CLI override.
+    # The config itself is the source of truth in eval; the CLI flag is
+    # kept for backward compatibility with operator habits.
+    effective_verify_flagged = bool(config.verify_flagged or verify_flagged)
+    pipeline_fp = config.fingerprint()
 
     # Load workbook (read_only for memory efficiency)
     wb = openpyxl.load_workbook(input_path, read_only=True)
@@ -112,11 +124,14 @@ def run(input_path: str, run_dir: str, api_key: str,
     logger.info(f"  Workers   : {workers}")
     if three_pass:
         mode_str = "3-PASS (3 calls per row, auto-trust only on full agreement)"
-    elif verify_flagged:
+    elif effective_verify_flagged:
         mode_str = "VERIFY-FLAGGED (2nd pass on review-flagged rows only)"
     else:
         mode_str = "single-pass"
     logger.info(f"  Mode      : {mode_str}")
+    logger.info(f"  Pipeline  : {config.name} (fp={pipeline_fp})")
+    # Full toggle dict + fingerprint so the run log proves what was used.
+    logger.info(f"  Config    : {config.as_log_dict()}")
     logger.info("=" * 60)
 
     if remaining == 0:
@@ -130,21 +145,47 @@ def run(input_path: str, run_dir: str, api_key: str,
     verified_count  = [0]    # how many rows triggered a 2nd pass
 
     def process_row(row_idx: int, row: tuple) -> dict:
+        from tools.business_metadata import metadata_from_row
         name    = get_cell(row, col_map.get("name"))
         website = get_cell(row, col_map.get("website"))
         city    = get_cell(row, col_map.get("city"))
         state   = get_cell(row, col_map.get("state"))
+        # Always extract metadata from the row so column-detection failures
+        # surface in logs; only pass it into the checker when the active
+        # config opts in. This is the iter-13 fix for the silent
+        # metadata-on leak in prior production runs.
+        extracted_metadata = metadata_from_row(row, col_map)
+        metadata = extracted_metadata if config.use_metadata else None
 
         if three_pass:
+            # 3-pass does not currently accept metadata or FB/IG signals.
+            # It still respects use_marketplace_residue + pipeline fingerprint.
             result = check_business_3pass(
-                api_key, name, website, city, state, cache=cache
+                api_key, name, website, city, state, cache=cache,
+                use_rule_scorer=config.use_rule_scorer,
+                use_marketplace_residue=config.use_marketplace_residue,
+                pipeline_fingerprint=pipeline_fp,
             )
-        elif verify_flagged:
+        elif effective_verify_flagged:
             result = check_business_with_verification(
-                api_key, name, website, city, state, cache=cache
+                api_key, name, website, city, state, cache=cache,
+                use_rule_scorer=config.use_rule_scorer,
+                use_facebook_recency=config.use_facebook_recency,
+                use_instagram_fallback=config.use_instagram_fallback,
+                use_marketplace_residue=config.use_marketplace_residue,
+                metadata=metadata,
+                pipeline_fingerprint=pipeline_fp,
             )
         else:
-            result = check_business(api_key, name, website, city, state, cache=cache)
+            result = check_business(
+                api_key, name, website, city, state, cache=cache,
+                use_rule_scorer=config.use_rule_scorer,
+                use_facebook_recency=config.use_facebook_recency,
+                use_instagram_fallback=config.use_instagram_fallback,
+                use_marketplace_residue=config.use_marketplace_residue,
+                metadata=metadata,
+                pipeline_fingerprint=pipeline_fp,
+            )
         checked_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Build a compact "Pass 1: Active(95) | Pass 2: Active(92)" string
@@ -232,7 +273,7 @@ def run(input_path: str, run_dir: str, api_key: str,
     logger.info(f"  Errors          : {summary['Errors']}")
     logger.info(f"  Total checked   : {summary['Total']}")
     logger.info(f"  Session cost    : ${run_cost:.4f}  (avg ${avg_cost:.4f}/check)")
-    if verify_flagged:
+    if effective_verify_flagged:
         verified_n = verified_count[0]
         verified_pct = (verified_n / checked * 100) if checked > 0 else 0
         logger.info(f"  2nd-pass runs   : {verified_n} ({verified_pct:.1f}% of session)")
@@ -261,6 +302,12 @@ Check your tier: https://www.perplexity.ai/settings/api
         """
     )
     parser.add_argument("--input",    required=True, help="Path to input .xlsx file")
+    parser.add_argument(
+        "--pipeline", required=True, choices=PIPELINE_NAMES,
+        help="Named pipeline configuration. Required since iter 13 — "
+             "explicit choice forced so production and eval cannot drift. "
+             f"Valid: {', '.join(PIPELINE_NAMES)}.",
+    )
     parser.add_argument("--workers",  type=int, default=1,
                         help="Number of concurrent workers (default: 1)")
     parser.add_argument("--limit",    type=int, default=None,
@@ -324,12 +371,25 @@ Check your tier: https://www.perplexity.ai/settings/api
         if args.verify_flagged and args.three_pass:
             print("ERROR: --verify-flagged and --3pass are mutually exclusive.")
             sys.exit(1)
+
+        config = get_pipeline_config(args.pipeline)
+
+        # Warn (don't error) when a CLI flag duplicates what the pipeline
+        # already enables — keeps existing muscle-memory invocations working
+        # but makes the redundancy visible in stdout.
+        if args.verify_flagged and config.verify_flagged:
+            print(
+                f"NOTE: --verify-flagged is redundant — pipeline "
+                f"'{config.name}' already enables verify_flagged."
+            )
+
         run(
             input_path=dest,
             run_dir=run_dir,
             api_key=api_key,
             col_map=col_map,
             workers=args.workers,
+            config=config,
             limit=args.limit,
             cache=cache,
             verify_flagged=args.verify_flagged,

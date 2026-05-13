@@ -2,19 +2,32 @@
 SQLite-backed result cache for the Business Checker.
 
 Avoids redundant Perplexity API calls for businesses that appear in
-multiple datasets. Cache key is (normalized name, city, state) — website
-is intentionally excluded so the same business is recognized regardless of
-URL format or variation.
+multiple datasets.
 
-Cache file location: Business Checker/cache/results.db (auto-created)
+Cache key (since iter 13): (normalized name, normalized website, city,
+state, pipeline_fingerprint). Earlier versions excluded the website on the
+assumption that "verdicts shouldn't depend on the listed URL", but in
+practice the URL feeds Perplexity context and the website-scrape signal,
+both of which materially affect the verdict. Including a 12-char
+PipelineConfig fingerprint also ensures different pipelines never share a
+cache row — otherwise toggling `v11` ↔ `v12_current_prod` would silently
+read each other's cached verdicts.
+
+Migration: cache rows written with the legacy (name, city, state) key
+remain on disk but are simply not hit under the new key — they are
+harmless and will age out via TTL. No destructive cleanup is performed.
+
+Cache file location: business_checker/cache/results.db (auto-created)
 TTL default: 30 days, configurable via CACHE_TTL_DAYS in .env
 
 Usage:
+    from tools.pipeline_configs import V11
     cache = ResultCache()
-    result = cache.get(name, city, state)
+    fp = V11.fingerprint()
+    result = cache.get(name, website, city, state, fp)
     if result is None:
         result = check_business(...)
-        cache.put(name, city, state, result)
+        cache.put(name, website, city, state, fp, result)
     cache.close()
 
     # Or as a context manager:
@@ -74,21 +87,58 @@ def _normalize_part(value: str) -> str:
 _normalize_name = _normalize_part
 
 
-def make_cache_key(name: str, city: str, state: str) -> str:
-    """Return a SHA-256 cache key for (normalized name, city, state).
+def _normalize_website(value: str) -> str:
+    """Normalize a website URL fragment for cache-key generation.
 
-    All three parts are fully normalized — punctuation stripped, whitespace
-    collapsed, lowercased — so "AABON 2, INC" and "Aabon 2 Inc" hash to the
-    same key, and "St. Louis" and "St Louis" hash to the same key.
+    Lowercases, strips a leading scheme (http://, https://), a leading
+    "www.", and any trailing slash / whitespace. Two listings of the same
+    domain with cosmetic URL differences hash to the same key, but a
+    genuine domain change does not.
+    """
+    if not value:
+        return ""
+    v = value.strip().lower()
+    for prefix in ("https://", "http://"):
+        if v.startswith(prefix):
+            v = v[len(prefix):]
+            break
+    if v.startswith("www."):
+        v = v[4:]
+    return v.rstrip("/").strip()
+
+
+def make_cache_key(
+    name: str,
+    website: str,
+    city: str,
+    state: str,
+    pipeline_fingerprint: str,
+) -> str:
+    """Return a SHA-256 cache key for (name, website, city, state, fingerprint).
+
+    Name / city / state are fully normalized (punctuation stripped,
+    whitespace collapsed, lowercased) so "AABON 2, INC" and "Aabon 2 Inc"
+    hash to the same key. Website is normalized via `_normalize_website`
+    (scheme/www/trailing-slash stripped, lowercased) so the same domain in
+    different cosmetic forms hashes to the same key, but a genuine domain
+    change (data correction, brand redirect) does not.
+
+    The `pipeline_fingerprint` segment (12-char hash from
+    `PipelineConfig.fingerprint()`) namespaces the cache by pipeline so
+    different toggle sets never read each other's cached verdicts.
 
     Exported so tests can verify key stability independently of the class.
     """
     normalized = (
         _normalize_part(name)
         + "|"
+        + _normalize_website(website)
+        + "|"
         + _normalize_part(city)
         + "|"
         + _normalize_part(state)
+        + "|"
+        + (pipeline_fingerprint or "")
     )
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
@@ -126,13 +176,24 @@ class ResultCache:
             self._local.conn = conn
         return conn
 
-    def get(self, name: str, city: str, state: str) -> Optional[dict]:
+    def get(
+        self,
+        name: str,
+        website: str,
+        city: str,
+        state: str,
+        pipeline_fingerprint: str,
+    ) -> Optional[dict]:
         """Return a cached result dict, or None if missing/expired.
 
         A cache hit sets cost_usd=0.0 and adds _cached=True so callers
         can log it distinctly.
+
+        All five key components must match what was passed to `put()` —
+        a different `pipeline_fingerprint` (e.g. v10 vs v11) reads as a
+        miss, not a hit.
         """
-        key    = make_cache_key(name, city, state)
+        key    = make_cache_key(name, website, city, state, pipeline_fingerprint)
         cutoff = (datetime.now(timezone.utc) - timedelta(days=self.ttl_days)).strftime(
             "%Y-%m-%d %H:%M:%S"
         )
@@ -158,12 +219,20 @@ class ResultCache:
             "_cached":    True,
         }
 
-    def put(self, name: str, city: str, state: str, result: dict) -> None:
+    def put(
+        self,
+        name: str,
+        website: str,
+        city: str,
+        state: str,
+        pipeline_fingerprint: str,
+        result: dict,
+    ) -> None:
         """Store a successful API result. Errors are never cached."""
         if result.get("error"):
             return
 
-        key        = make_cache_key(name, city, state)
+        key        = make_cache_key(name, website, city, state, pipeline_fingerprint)
         checked_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         citations  = json.dumps(result.get("citations", []))
 
