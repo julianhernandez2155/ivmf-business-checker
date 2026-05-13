@@ -8,6 +8,8 @@
 
 ## Rationale
 
+**Framing decision (2026-05-13):** The product is a *triage engine*, not a status oracle. AI emits routing labels; humans resolve them. See [2026-05-13-decision-triage-not-oracle.md](./2026-05-13-decision-triage-not-oracle.md) for the locked output schema and phase responsibilities.
+
 Phases derived from the research SUMMARY.md build-order table. Three structural notes:
 
 1. **Phase 0 is foundation-heavy and carries disproportionate risk weight.** Schema + RLS + auth + worker scaffold + eval-CI gate must all be green before any business logic lands. Skipping any compounds across every later phase.
