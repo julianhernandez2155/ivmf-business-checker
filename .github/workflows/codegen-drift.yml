@@ -1,0 +1,65 @@
+name: codegen-drift
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'web/db/schema.ts'
+      - 'worker/workers/lib/models.py'
+      - 'web/drizzle.config.ts'
+      - 'scripts/check-drift.sh'
+      - 'web/drizzle/migrations/**' # D-00-03 hard guard — fires if anyone creates this dir
+      - '.github/workflows/codegen-drift.yml'
+  workflow_dispatch:
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: D-00-03 hard guard — no Drizzle migrations
+        run: |
+          if [ -d web/drizzle/migrations ] && [ -n "$(ls -A web/drizzle/migrations 2>/dev/null)" ]; then
+            echo "::error::web/drizzle/migrations must be empty — Supabase CLI owns migrations (D-00-03)"
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install web deps
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Install codegen deps
+        run: pip install datamodel-code-generator==0.57.0
+
+      - name: Run drift check
+        env:
+          SUPABASE_DEV_DB_URL: ${{ secrets.SUPABASE_DEV_DB_URL }}
+          DATABASE_URL: ${{ secrets.SUPABASE_DEV_DB_URL }}
+        run: bash scripts/check-drift.sh
+
+      - name: Show diff on failure
+        if: failure()
+        run: |
+          echo "::group::web/db/schema.ts diff"
+          git diff -- web/db/schema.ts || true
+          echo "::endgroup::"
+          echo "::group::worker/workers/lib/models.py diff"
+          git diff -- worker/workers/lib/models.py || true
+          echo "::endgroup::"
+          echo "::error::Schema drift detected. Run 'bash scripts/check-drift.sh' locally and commit regenerated files."
