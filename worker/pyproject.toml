@@ -1,0 +1,28 @@
+[project]
+name = "ivmf-worker"
+version = "0.0.1"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi==0.136.1",
+  "uvicorn[standard]>=0.35.0,<0.36",
+  "psycopg[binary,pool]==3.3.4",
+  "tembo-pgmq-python==0.10.0",
+  "tenacity==9.1.4",
+  "structlog>=25.0",
+  "pydantic==2.12.5",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0,<9.0",
+  "pytest-asyncio>=0.24",
+  "datamodel-code-generator==0.57.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-x -ra --strict-markers"
+markers = [
+  "integration: requires SUPABASE_DEV_DB_URL",
+  "ci_only: only runs in CI with secrets",
+]

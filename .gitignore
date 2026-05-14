@@ -57,3 +57,17 @@ Runs/
 # Claude / agentic tooling artifacts
 .superpowers/
 .claude/
+
+# web/
+web/node_modules/
+web/.next/
+web/.vercel/
+# worker/
+worker/.venv/
+worker/__pycache__/
+worker/**/*.egg-info/
+worker/.pytest_cache/
+# supabase
+supabase/.temp/
+.env
+.env.local
