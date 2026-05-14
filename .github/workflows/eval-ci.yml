@@ -1,0 +1,57 @@
+name: eval-ci
+on:
+  pull_request:
+    paths:
+      - 'business_checker/eval/**'
+      - 'business_checker/tools/**'
+      - 'business_checker/pyproject.toml'
+      - 'scripts/eval-ci.sh'
+      - '.github/workflows/eval-ci.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install business_checker (editable)
+        run: |
+          pip install -e ./business_checker
+
+      - name: Run eval (dry-run when PERPLEXITY_API_KEY_EVAL is unset)
+        env:
+          # Optional secret — when present, the scorer may make live calls
+          # in Phase 2. Phase 0 gold set is offline so the scorer ignores
+          # this and runs deterministically.
+          PERPLEXITY_API_KEY_EVAL: ${{ secrets.PERPLEXITY_API_KEY_EVAL }}
+          EVAL_GOLD: business_checker/eval/gold.json
+          EVAL_BASELINE: business_checker/eval/baseline.json
+        run: bash scripts/eval-ci.sh
+
+      - name: Upload result artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-result
+          path: eval_result.json
+          if-no-files-found: warn
+
+      - name: Surface failure context
+        if: failure()
+        run: |
+          echo "::group::eval_result.json"
+          cat eval_result.json 2>/dev/null || echo "no eval_result.json produced"
+          echo "::endgroup::"
+          echo "::group::baseline.json"
+          cat business_checker/eval/baseline.json
+          echo "::endgroup::"
+          echo "::error::Eval regression or gold-set size violation. See uploaded eval-result artifact and the groups above."
