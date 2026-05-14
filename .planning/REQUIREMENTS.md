@@ -9,9 +9,9 @@
 
 ### AUTH — Authentication & Authorization
 
-- [ ] **AUTH-01**: User can sign in with @syr.edu email via magic-link or password (Supabase Auth)
-- [ ] **AUTH-02**: Admin can extend the email domain allowlist via a config row (no code change required)
-- [ ] **AUTH-03**: System enforces two-role RBAC (admin / user) via Next.js middleware AND Postgres RLS, with role stored in `app_metadata`
+- [x] **AUTH-01**: User can sign in with @syr.edu email via magic-link or password (Supabase Auth)
+- [x] **AUTH-02**: Admin can extend the email domain allowlist via a config row (no code change required)
+- [x] **AUTH-03**: System enforces two-role RBAC (admin / user) via Next.js middleware AND Postgres RLS, with role stored in `app_metadata`
 - [x] **AUTH-04**: System writes an audit log entry (with before/after diff) for every admin write action (edit, merge, approval, key rotation)
 
 ### CANON — Canonical Business Matching
@@ -114,9 +114,9 @@ These shipped in v1.0 (desktop) and are preserved through the worker:
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| AUTH-01 | Phase 0 | Pending |
-| AUTH-02 | Phase 0 | Pending |
-| AUTH-03 | Phase 0 | Pending |
+| AUTH-01 | Phase 0 | Complete |
+| AUTH-02 | Phase 0 | Complete |
+| AUTH-03 | Phase 0 | Complete |
 | AUTH-04 | Phase 0 | Complete |
 | CANON-01 | Phase 1 | Pending |
 | CANON-02 | Phase 1 | Pending |
@@ -169,4 +169,4 @@ These shipped in v1.0 (desktop) and are preserved through the worker:
 **Coverage:** 50/50 v1.1 requirements mapped to exactly one phase. No orphans.
 
 ---
-*Last updated: 2026-05-14 — Plan 00-02 closed CANON-03/05/06/07/08 + AUTH-04*
+*Last updated: 2026-05-14 — Plan 00-04 closed AUTH-01/02/03 (Plan 00-02 closed CANON-03/05/06/07/08 + AUTH-04)*

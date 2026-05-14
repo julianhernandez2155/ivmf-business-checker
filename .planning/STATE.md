@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-05-14T19:44:42.889Z"
+last_updated: "2026-05-14T19:59:45.357Z"
 last_activity: 2026-05-14
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 6
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # STATE.md
@@ -17,7 +17,7 @@ progress:
 ## Current Position
 
 Phase: 00 (Foundation) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-05-14
 
@@ -91,11 +91,16 @@ Before opening `/gsd:plan-phase 0`:
 - **Plan 00-03:** Replaced v1.0 `.github/workflows/ci.yml` (matrix on business_checker) with v1.1 three-job structure (worker-tests, web-tests, worker-integration); v1.0 tests still run inside worker-tests with soft-warn so pre-existing failures don't block.
 - **Plan 00-03:** `codegen-drift.yml` runs the D-00-03 hard guard (non-empty `web/drizzle/migrations/` → exit 1) BEFORE any other step, so the gate fires even if other CI steps would have errored.
 - **Plan 00-03:** `worker-integration` CI job is gated on `secrets.SUPABASE_DEV_DB_URL != ''` so PRs from fork/no-secret contexts skip cleanly; branch protection should require `worker-tests` + `web-tests` + `codegen-drift`, NOT `worker-integration`.
+- **Plan 00-04:** Magic-link only per D-00-04 (no password form). Allowlist defense-in-depth via middleware `getAllowlist()` + RLS `auth.is_allowed_domain()` reading the SAME `app_config.email_domain_allowlist` row.
+- **Plan 00-04:** AUTH-03 role storage is `app_metadata.role` only — NO `profiles` table in Phase 0 (Supabase Auth's `app_metadata` is sufficient). `auth.current_role_claim()` RLS helper provides a single canonical read path for both middleware and RLS.
+- **Plan 00-04:** Allowlist edge cache TTL = 60s on success, 10s on error, fails CLOSED to `['syr.edu']`. Admin allowlist edits propagate within 60s — acceptable for AUTH-02 since admin edits are rare.
+- **Plan 00-04:** `drizzle-kit` pinned to `^0.31` (registry truth on 2026-05-14); STACK.md research baseline `^0.45` conflated drizzle-orm with drizzle-kit version lines.
+- **Plan 00-04:** Migration `0008_rbac_role_default.sql` apply to dev DB deferred (no `SUPABASE_DEV_DB_URL`); will land with the rest via `supabase db push` once `ivmf-checker-dev` is provisioned.
 
 ## Session Continuity
 
-Last completed: Plan 00-03 (codegen drift gate — Drizzle config, schema.ts + models.py baselines, codegen-drift + ci workflows, EVIDENCE.md).
-Next action: Execute Plan 00-04 (Next.js 16 + magic-link auth + middleware allowlist + /me page — AUTH-01..03) per ROADMAP.md.
+Last completed: Plan 00-04 (Next.js 16 + Supabase magic-link auth + middleware allowlist + /me page — AUTH-01..03 closed; migration 0008 RBAC + role helper added; 8 vitest tests passing, 7 pytest tests skip cleanly pending dev DB).
+Next action: Execute Plan 00-05 (Railway worker + pgmq long-poll + heartbeat — D-00-09, D-00-11 item 5) per ROADMAP.md.
 
 ---
-*Last updated: 2026-05-14 — Plan 00-03 completed (drift gate wired; live drizzle-kit pull / datamodel-codegen deferred pending dev project provisioning)*
+*Last updated: 2026-05-14 — Plan 00-04 completed (web auth shell + AUTH-01/02/03; migration apply + live magic-link demo deferred pending dev project provisioning)*
