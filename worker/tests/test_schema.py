@@ -1,16 +1,36 @@
-"""CANON-05: businesses table exists with required columns."""
+"""Phase 0 schema gate: all 11 expected tables exist in public.
+
+Verifies the Plan 02 migration suite has been applied to the dev DB.
+"""
+from __future__ import annotations
+
 import pytest
 
+pytestmark = pytest.mark.integration
 
-@pytest.mark.integration
-@pytest.mark.xfail(strict=False, reason="Wave 1 pending — businesses table not yet migrated")
-def test_businesses_table_exists(conn):
+EXPECTED_TABLES = {
+    "businesses",
+    "runs",
+    "run_rows",
+    "verifications",
+    "api_calls",
+    "app_config",
+    "api_keys",
+    "budget_ledger",
+    "outreach_tickets",
+    "audit_log",
+    "worker_heartbeats",
+}
+
+
+def test_all_phase0_tables_exist(conn):
     with conn.cursor() as cur:
         cur.execute(
-            "select count(*) from information_schema.tables "
-            "where table_schema='public' and table_name='businesses'"
+            """
+            select table_name from information_schema.tables
+            where table_schema='public'
+            """
         )
-        assert cur.fetchone()[0] == 1, "businesses table missing"
-    raise NotImplementedError(
-        "Wave 1: assert full column shape per ARCHITECTURE.md table inventory"
-    )
+        present = {r[0] for r in cur.fetchall()}
+    missing = EXPECTED_TABLES - present
+    assert not missing, f"public tables missing after migration: {missing}"
