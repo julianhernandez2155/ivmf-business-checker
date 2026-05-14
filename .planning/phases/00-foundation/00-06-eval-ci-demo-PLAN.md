@@ -7,6 +7,7 @@ depends_on: [01, 02, 03, 04, 05]
 files_modified:
   - .github/workflows/eval-ci.yml
   - business_checker/eval/score.py
+  - business_checker/eval/routing_labels.py
   - business_checker/eval/baseline.json
   - business_checker/eval/README.md
   - .planning/phases/00-foundation/00-EVIDENCE.md
@@ -18,6 +19,8 @@ must_haves:
   truths:
     - "GitHub Actions eval-ci workflow runs on every PR + push to main and exits non-zero if accuracy regresses below baseline"
     - "eval-ci asserts n_examples >= 20 (Pitfall P8 defense) — false-pass on empty gold set is structurally prevented"
+    - "eval_result.json contains a routing_distribution object with counts for all 6 routing-label buckets (D-00-12 measurement surface); informational only in Phase 0, gated in Phase 2"
+    - "business_checker/eval/routing_labels.py exports the 6-value RoutingLabel enum imported by score.py (single source of truth for Phase 2)"
     - "Resend account exists; DKIM/SPF/DMARC records for IVMF subdomain are generated in the Resend dashboard"
     - "IT ticket is filed with the exact DNS records and the ticket ID is recorded in STATE.md"
     - "scripts/phase0-demo.sh executes against the dev Supabase project and confirms items 1, 4, 5 of D-00-11"
@@ -92,10 +95,12 @@ Resend DNS record set (Resend dashboard generates exact values):
 <tasks>
 
 <task type="auto" tdd="false">
-  <name>Task 1: Verify + adapt eval scorer output shape; freeze baseline.json</name>
-  <files>business_checker/eval/score.py, business_checker/eval/baseline.json, business_checker/eval/README.md</files>
+  <name>Task 1: Verify + adapt eval scorer output shape; add routing-label measurement surface (D-00-12); freeze baseline.json</name>
+  <files>business_checker/eval/score.py, business_checker/eval/routing_labels.py, business_checker/eval/baseline.json, business_checker/eval/README.md</files>
   <read_first>
     - business_checker/eval/score.py (existing v1.0 scorer — current output shape)
+    - .planning/phases/00-foundation/00-CONTEXT.md (D-00-12 — routing-aware measurement surface)
+    - .planning/2026-05-13-decision-triage-not-oracle.md (canonical 6-value routing schema; mapping rules table)
     - .planning/phases/00-foundation/00-RESEARCH.md (Open Question 2 at lines 746-749; Pattern 7 at lines 575-611)
     - .planning/research/PITFALLS.md (P8 RLS-filtered gold set / n_examples assertion)
     - scripts/eval-ci.sh (the script that will consume the JSON output)
@@ -160,16 +165,92 @@ Resend DNS record set (Resend dashboard generates exact values):
     **Outcome C — scorer does not have a `__main__` entry point or eval/ is partially shipped:**
     Add the minimal `__main__` block above to `business_checker/eval/__main__.py` (new file) so `python -m business_checker.eval.score` works. If `gold.json` doesn't exist, document the gap in `business_checker/eval/README.md` and create a placeholder gold.json with at least 20 example records FROM THE BMSG/Alabama VOB reference runs (these are already in `business_checker/Runs/`). Defer real population to Phase 2.
 
+    **Routing-label measurement surface (D-00-12) — REQUIRED in all three outcomes.**
+
+    Create `business_checker/eval/routing_labels.py` as the single source of truth for the 6-value routing schema. Phase 2 imports this same enum for the production mapping function; Phase 0 only uses it for the eval distribution report.
+
+    ```python
+    """Routing labels for triage output (locked 2026-05-13).
+
+    Single source of truth for the 6-value schema defined in
+    .planning/2026-05-13-decision-triage-not-oracle.md.
+
+    Phase 0: imported by eval/score.py to emit a distribution report (informational).
+    Phase 2: imported by the worker's post-adjudicator mapping function (gated).
+    """
+    from enum import Enum
+    from typing import Any
+
+
+    class RoutingLabel(str, Enum):
+        ACTIVE_AUTO_ACCEPTED = "Active - auto accepted"
+        LIKELY_CLOSED_STRONG_EVIDENCE = "Likely Closed - strong evidence"
+        UNCERTAIN_MANUAL_REVIEW = "Uncertain - manual review recommended"
+        UNCERTAIN_OUTREACH = "Uncertain - outreach recommended"
+        LIKELY_CLOSED_OUTREACH = "Likely Closed - outreach recommended"
+        NO_CONTACT_AVAILABLE = "No contact available"
+
+
+    def stub_label_from_gold(example: dict[str, Any]) -> RoutingLabel:
+        """Phase 0 stub mapping — uses ONLY v1.0 gold-set fields.
+
+        Phase 2 replaces this with a real mapping over
+        (verdict, confidence, requires_review, contact_available)
+        per the triage decision doc. Phase 0 does not have requires_review
+        or contact_available, so we approximate from verdict + confidence only.
+
+        DO NOT use this stub for production routing. It exists so the
+        eval-CI report has a populated distribution column from day one.
+        """
+        verdict = (example.get("expected_status") or example.get("verdict") or "").lower()
+        confidence = float(example.get("expected_confidence") or example.get("confidence") or 0.0)
+        if verdict == "active" and confidence >= 0.70:
+            return RoutingLabel.ACTIVE_AUTO_ACCEPTED
+        if verdict in ("likely_closed", "closed") and confidence >= 0.70:
+            return RoutingLabel.LIKELY_CLOSED_STRONG_EVIDENCE
+        if verdict in ("likely_closed", "closed"):
+            return RoutingLabel.LIKELY_CLOSED_OUTREACH
+        return RoutingLabel.UNCERTAIN_MANUAL_REVIEW
+
+
+    def empty_distribution() -> dict[str, int]:
+        return {label.value: 0 for label in RoutingLabel}
+    ```
+
+    Update the scorer's `__main__` block (whichever outcome above applied) to compute and emit a `routing_distribution` field. After computing `out["accuracy"]` and `out["n_examples"]`, add:
+
+    ```python
+    from business_checker.eval.routing_labels import (
+        stub_label_from_gold,
+        empty_distribution,
+    )
+
+    dist = empty_distribution()
+    for ex in raw.get("details", []) or []:
+        dist[stub_label_from_gold(ex).value] += 1
+    out["routing_distribution"] = dist
+    ```
+
+    If the scorer doesn't surface per-example records in `details`, read the gold file directly inside the `__main__` block and iterate over it for the distribution count — the distribution is over the gold set, NOT the predictions, because Phase 0 doesn't run the adjudicator.
+
     Create `business_checker/eval/baseline.json` (after running scorer once):
     ```json
     {
       "accuracy": 0.93,
       "n_examples": 124,
+      "routing_distribution": {
+        "Active - auto accepted": 70,
+        "Likely Closed - strong evidence": 25,
+        "Uncertain - manual review recommended": 20,
+        "Uncertain - outreach recommended": 0,
+        "Likely Closed - outreach recommended": 9,
+        "No contact available": 0
+      },
       "recorded_at": "2026-05-12T00:00:00Z",
-      "note": "Phase 0 baseline — locked. Update only after explicit accuracy improvement."
+      "note": "Phase 0 baseline — locked. Update only after explicit accuracy improvement. routing_distribution is informational in Phase 0; Phase 2 gates on drift."
     }
     ```
-    The `accuracy` and `n_examples` values must come from the actual scorer output. If the run produces accuracy=0.87 with n_examples=42, that's the baseline.
+    The `accuracy`, `n_examples`, and `routing_distribution` values must come from the actual scorer output. If the run produces accuracy=0.87 with n_examples=42 and a different distribution, those become the baseline.
 
     Create or update `business_checker/eval/README.md`:
     ```markdown
@@ -183,7 +264,19 @@ Resend DNS record set (Resend dashboard generates exact values):
 
     Output JSON shape (required by ANALYTICS-04 CI gate):
     ```json
-    { "accuracy": 0.93, "n_examples": 124, "details": [...] }
+    {
+      "accuracy": 0.93,
+      "n_examples": 124,
+      "routing_distribution": {
+        "Active - auto accepted": 70,
+        "Likely Closed - strong evidence": 25,
+        "Uncertain - manual review recommended": 20,
+        "Uncertain - outreach recommended": 0,
+        "Likely Closed - outreach recommended": 9,
+        "No contact available": 0
+      },
+      "details": [...]
+    }
     ```
 
     ## Baseline
@@ -194,20 +287,30 @@ Resend DNS record set (Resend dashboard generates exact values):
     The CI gate also asserts `n_examples >= 20`. If you see CI fail with "gold set too small",
     do NOT shrink the threshold — investigate why the gold set is shorter than expected.
 
+    ## Routing-label distribution (D-00-12)
+    `routing_distribution` is informational in Phase 0 — the eval-CI workflow uploads it as
+    an artifact but does NOT fail on drift. The 6-value `RoutingLabel` enum lives in
+    `business_checker/eval/routing_labels.py` and is the single source of truth.
+    Phase 2 will import the same enum for the production mapping function and add a
+    distribution-drift gate on top of the existing accuracy gate.
+
     ## Adding gold examples
     See `manual_labels` table (Phase 3) for the canonical source. Currently the gold set
     lives in `eval/gold.json` and is hand-curated from the BMSG and Alabama VOB runs.
     ```
   </action>
   <verify>
-    <automated>cd business_checker && python -m eval.score --help 2>&1 | head -20 || python eval/score.py --help 2>&1 | head -20; test -f business_checker/eval/baseline.json && python -c "import json; d=json.load(open('business_checker/eval/baseline.json')); assert 'accuracy' in d and 'n_examples' in d and d['n_examples'] >= 0; print('OK', d)" && test -f business_checker/eval/README.md && grep -q "ANALYTICS-04" business_checker/eval/README.md && grep -q "n_examples >= 20" business_checker/eval/README.md</automated>
+    <automated>cd business_checker && python -m eval.score --help 2>&1 | head -20 || python eval/score.py --help 2>&1 | head -20; test -f business_checker/eval/routing_labels.py && python -c "from business_checker.eval.routing_labels import RoutingLabel, empty_distribution; assert len(list(RoutingLabel)) == 6; d = empty_distribution(); assert set(d.keys()) == {l.value for l in RoutingLabel}; print('routing OK')" && test -f business_checker/eval/baseline.json && python -c "import json; d=json.load(open('business_checker/eval/baseline.json')); assert 'accuracy' in d and 'n_examples' in d and d['n_examples'] >= 0; assert 'routing_distribution' in d and isinstance(d['routing_distribution'], dict) and len(d['routing_distribution']) == 6; print('OK', list(d.keys()))" && test -f business_checker/eval/README.md && grep -q "ANALYTICS-04" business_checker/eval/README.md && grep -q "n_examples >= 20" business_checker/eval/README.md && grep -q "routing_distribution\\|D-00-12" business_checker/eval/README.md</automated>
   </verify>
   <acceptance_criteria>
     - `python -m business_checker.eval.score --gold business_checker/eval/gold.json --out /tmp/test.json` exits 0 (after possible shim addition)
-    - `/tmp/test.json` parses as JSON AND contains keys `accuracy` (float) AND `n_examples` (int)
-    - `business_checker/eval/baseline.json` exists AND contains `accuracy` AND `n_examples` AND `recorded_at`
+    - `/tmp/test.json` parses as JSON AND contains keys `accuracy` (float) AND `n_examples` (int) AND `routing_distribution` (dict with all 6 RoutingLabel keys)
+    - `business_checker/eval/routing_labels.py` exists AND exports a `RoutingLabel` Enum with exactly the 6 string values listed in `.planning/2026-05-13-decision-triage-not-oracle.md`
+    - `business_checker/eval/routing_labels.py` exports `stub_label_from_gold` (callable) AND `empty_distribution` (returns dict with all 6 keys zero)
+    - `business_checker/eval/baseline.json` exists AND contains `accuracy` AND `n_examples` AND `routing_distribution` (dict with all 6 keys) AND `recorded_at`
     - `business_checker/eval/baseline.json` n_examples is ≥ 20 (Pitfall P8 floor) OR a gap note in `business_checker/eval/README.md` explains the path to ≥ 20 by Phase 2
-    - `business_checker/eval/README.md` documents the JSON output shape AND references ANALYTICS-04 AND Pitfall P8
+    - `business_checker/eval/baseline.json` routing_distribution sums to exactly `n_examples` (sanity check — every gold example maps to exactly one bucket)
+    - `business_checker/eval/README.md` documents the JSON output shape AND references ANALYTICS-04 AND Pitfall P8 AND mentions D-00-12 / routing distribution
     - No modifications to `business_checker/tools/` (engine is preserved per STATE.md)
   </acceptance_criteria>
   <done>Eval scorer emits standardized JSON; baseline.json frozen; CI has a stable contract to compare against.</done>
@@ -517,9 +620,11 @@ Resend DNS record set (Resend dashboard generates exact values):
 <output>
 After completion, create `.planning/phases/00-foundation/00-06-eval-ci-demo-SUMMARY.md` documenting:
 - Eval scorer output shape (was it already standard, or was a shim added?)
-- Baseline accuracy and n_examples values
+- Baseline accuracy, n_examples, and routing_distribution values
+- Routing-label surface: confirmation that `business_checker/eval/routing_labels.py` exports the 6-value enum and that Phase 2 can import it unchanged
 - Resend ticket ID + date filed (or blocker reason)
 - Demo PR URLs (codegen-drift, eval-regression) — both closed without merging
 - Requirements closed: ANALYTICS-04
+- D-00-12 measurement surface live (informational; Phase 2 adds the gate)
 - Phase 0 fully closed; STATE.md updated; recommend `/clear` then `/gsd:plan-phase 1`
 </output>
