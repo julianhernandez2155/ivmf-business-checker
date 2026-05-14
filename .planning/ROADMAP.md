@@ -36,8 +36,8 @@ Outreach (Phase 4) is the only externally-blocked phase (IT must verify Resend D
 **Requirements:** AUTH-01, AUTH-02, AUTH-03, AUTH-04, CANON-03, CANON-05, CANON-06, CANON-07, CANON-08, ANALYTICS-04
 **Plans:** 6 plans across 6 waves
 Plans:
-- [ ] 00-01-wave0-test-scaffolding-PLAN.md — Wave 0 stub test files, fixtures, scripts, Makefile (no requirements; scaffolding)
-- [ ] 00-02-supabase-schema-rls-PLAN.md — Wave 1 schema + RLS + append-only triggers + pgmq queues + normalize helpers (CANON-03, CANON-05, CANON-06, CANON-07, CANON-08, AUTH-04)
+- [x] 00-01-wave0-test-scaffolding-PLAN.md — Wave 0 stub test files, fixtures, scripts, Makefile (no requirements; scaffolding)
+- [x] 00-02-supabase-schema-rls-PLAN.md — Wave 1 schema + RLS + append-only triggers + pgmq queues + normalize helpers (CANON-03, CANON-05, CANON-06, CANON-07, CANON-08, AUTH-04)
 - [ ] 00-03-codegen-drift-gate-PLAN.md — Wave 2 Drizzle introspect + Pydantic codegen + GitHub Actions drift gate (no new reqs; supports P4 defense)
 - [ ] 00-04-web-auth-shell-PLAN.md — Wave 3 Next.js 16 + magic-link auth + middleware allowlist + /me page (AUTH-01, AUTH-02, AUTH-03)
 - [ ] 00-05-worker-railway-pgmq-PLAN.md — Wave 4 FastAPI worker scaffold + heartbeat + pgmq long-poll (D-00-09, D-00-11 item 5; no new reqs)
@@ -153,4 +153,4 @@ All 50 v1.1 requirements mapped to exactly one phase:
 Coverage: 50/50 ✓ — no orphans, no duplicates.
 
 ---
-*Last updated: 2026-05-12 — Phase 0 planned (6 plans, 6 waves)*
+*Last updated: 2026-05-14 — Phase 0 in progress (2/6 plans complete)*
