@@ -4,8 +4,8 @@
 
 Phase: Phase 0 — Foundation
 Plan: — (awaiting `/gsd:plan-phase 0`)
-Status: Phase 0 context captured; ready to plan
-Last activity: 2026-05-12 — `/gsd:discuss-phase 0` produced CONTEXT.md + DISCUSSION-LOG.md (commit 7ea2b24)
+Status: Phase 0 context captured + amended for triage routing surface; ready to plan
+Last activity: 2026-05-13 — CONTEXT.md amended with D-00-12 (eval-CI emits routing-label distribution alongside decisive accuracy) so Phase 2 doesn't retrofit. Triage decision `.planning/2026-05-13-decision-triage-not-oracle.md` (commit a141951) added to canonical_refs.
 
 ## Project Reference
 

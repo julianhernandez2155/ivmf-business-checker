@@ -102,3 +102,15 @@ The planner has flexibility on:
 - Staging environment between dev and prod → defer
 - Audit log retention/archival → v1.2+
 - Outreach token HMAC implementation → Phase 4 scope
+
+---
+
+## Amendment — 2026-05-13
+
+**Trigger:** Iter 14 spike landed (commits 1a69f99, 05829b3, e6116b4, 5282202 on main) and the framing decision in `.planning/2026-05-13-decision-triage-not-oracle.md` (a141951) locked the 6-value routing-label schema for Phase 2.
+
+**Change:** Added D-00-12 ("Eval-CI Measurement Surface — routing-aware") to CONTEXT.md. The Phase 0 eval-CI gate now stands up the routing-label enum and distribution report, so Phase 2 doesn't have to retrofit the CI workflow when the adjudicator-to-routing-label mapping ships.
+
+**No scope creep:** Phase 0 still ships NO adjudicator code, NO real routing computation, NO Iter 14 wiring. The amendment is ~30 min of additive surface work (enum + report column + stub mapping using only gold-set fields).
+
+**Also amended:** D-00-11 item 3 now mentions the routing-distribution report alongside the decisive-accuracy gate. Triage decision doc added to canonical_refs.

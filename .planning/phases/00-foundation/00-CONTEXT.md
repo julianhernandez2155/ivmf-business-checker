@@ -49,12 +49,24 @@ Phase 0 delivers the foundational infrastructure that every later phase composes
 - **D-00-11:** Phase 0 is shipped when ALL of the following are demonstrable in one ~10-minute walkthrough:
   1. A `@syr.edu` magic-link login round-trip lands the user on a `/me` page showing their email and role; a `@gmail.com` login attempt is blocked at the middleware with a clear message.
   2. A PR that intentionally drops or renames a column in a `supabase/migrations/*.sql` file without regenerating Drizzle types and Pydantic models fails the GitHub Actions check with a non-zero diff from `drizzle-kit pull` or `datamodel-codegen`.
-  3. A PR that introduces an intentional accuracy regression to the v1.0 eval gold set (e.g., flipping an expected label) fails the eval-CI step.
+  3. A PR that introduces an intentional accuracy regression to the v1.0 eval gold set (e.g., flipping an expected label) fails the eval-CI step. The same eval-CI run also emits a routing-label distribution report (counts per bucket from the 6-value routing schema — see D-00-12) so Phase 2 has its measurement surface pre-built.
   4. A test attempting `UPDATE verifications SET status='active' WHERE id=...` raises the append-only exception; a duplicate `INSERT` with the same `(run_id, row_index, pass)` raises a unique-violation.
   5. The worker is running on Railway, has long-polled `q_verify` for at least one cycle, and shows a heartbeat row in a `worker_heartbeats` table.
   6. The Resend DNS ticket for the IVMF subdomain is filed with IT and referenced by ticket ID in STATE.md.
 
   **Why:** without a concrete demo, Phase 0 can "look done" while quietly broken on the gates that protect every later phase. The drift-trip PR and the immutability assertion are the two highest-leverage checks.
+
+### Eval-CI Measurement Surface (routing-aware)
+- **D-00-12:** The Phase 0 eval-CI step computes and emits TWO metrics on every run:
+  1. **Decisive accuracy** — current v1.0 scoring against the gold set (unchanged; this is what gates the deploy).
+  2. **Routing-label distribution** — counts per bucket from the 6-value routing schema locked in `.planning/2026-05-13-decision-triage-not-oracle.md`: `Active - auto accepted`, `Likely Closed - strong evidence`, `Uncertain - manual review recommended`, `Uncertain - outreach recommended`, `Likely Closed - outreach recommended`, `No contact available`.
+
+  Phase 0 does NOT run the adjudicator or compute real routing labels (no Iter 14 wiring yet — that lands in Phase 2). Phase 0's job is to **stand up the measurement surface**:
+   - Define the routing-label enum in the eval scoring module so Phase 2 imports it (no shape changes later).
+   - Add a `routing_label` column to the eval report output (CSV/JSON) populated from a deterministic stub mapping that uses only the v1.0 gold-set fields available today (e.g., `verdict ∈ {active, likely_closed, closed, uncertain}` → `Active - auto accepted` / `Likely Closed - strong evidence` / `No contact available` / `Uncertain - manual review recommended` based on the gold-set fields alone, ignoring `requires_review` and `contact_available` which Phase 2 will add).
+   - The eval-CI gate fails on decisive-accuracy regression. The routing-distribution report is informational in Phase 0 (printed and stored as a CI artifact); Phase 2 adds the distribution-based gate.
+
+  **Why:** Phase 2 will retrofit eval-CI to include routing-label drift if the surface isn't built now. Adding the column + enum in Phase 0 is ~30 minutes of work; retrofitting in Phase 2 means changing the CI workflow, the report shape, and every downstream dashboard that reads it. **For planner:** the routing-label enum lives in `business_checker/eval/routing_labels.py` (or equivalent) and is imported by both the eval scorer and (in Phase 2) the worker's post-adjudicator mapping function — single source of truth.
 
 ### Claude's Discretion
 The planner has discretion on:
@@ -80,6 +92,7 @@ None — no todos from `gsd-tools todo` matched Phase 0 scope.
 - `.planning/REQUIREMENTS.md` — All 50 v1.1 requirements; Phase 0 IDs: AUTH-01..04, CANON-03, CANON-05, CANON-06, CANON-07, CANON-08, ANALYTICS-04
 - `.planning/ROADMAP.md` — Phase 0 section: goal, dependencies, success criteria, requirements
 - `.planning/STATE.md` — Current position, accumulated context, Phase 0 preconditions, externally-blocked items
+- `.planning/2026-05-13-decision-triage-not-oracle.md` — Locks the 6-value routing-label schema and the "triage engine, not status oracle" frame. Phase 0 stands up the eval-CI measurement surface for this schema (see D-00-12); Phase 2 wires the mapping function and gates on distribution drift.
 
 ### Architecture & Stack Research
 - `.planning/research/SUMMARY.md` — Executive summary; build order with phase gates; top 8 pitfalls
