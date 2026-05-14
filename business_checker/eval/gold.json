@@ -1,0 +1,524 @@
+[
+  {
+    "row_index": 132,
+    "name": "Fundraiser Blankets\u00ae",
+    "website": "https://www.fundraiserblankets.com/",
+    "expected_status": "Active",
+    "expected_confidence": 100,
+    "predicted_status": "Active",
+    "predicted_confidence": 100
+  },
+  {
+    "row_index": 12,
+    "name": "Burn Pit BBQ",
+    "website": "https://burnpitbbq.com/",
+    "expected_status": "Active",
+    "expected_confidence": 95,
+    "predicted_status": "Active",
+    "predicted_confidence": 95
+  },
+  {
+    "row_index": 219,
+    "name": "27 West",
+    "website": "https://shop27west.com",
+    "expected_status": "Active",
+    "expected_confidence": 100,
+    "predicted_status": "Active",
+    "predicted_confidence": 100
+  },
+  {
+    "row_index": 86,
+    "name": "Resin8 Art Savannah",
+    "website": "https://www.resin8artsavannah.com",
+    "expected_status": "Active",
+    "expected_confidence": 95,
+    "predicted_status": "Active",
+    "predicted_confidence": 95
+  },
+  {
+    "row_index": 636,
+    "name": "SDVOSB Materials, Technology & Supply LLC",
+    "website": "https://www.sdvosbmaterials.com/",
+    "expected_status": "Active",
+    "expected_confidence": 95,
+    "predicted_status": "Active",
+    "predicted_confidence": 95
+  },
+  {
+    "row_index": 217,
+    "name": "ViTAC Solutions",
+    "website": "https://www.ViTACsolutions.com",
+    "expected_status": "Active",
+    "expected_confidence": 100,
+    "predicted_status": "Active",
+    "predicted_confidence": 100
+  },
+  {
+    "row_index": 527,
+    "name": "UNIVERSAL SPARTAN, LLC",
+    "website": "https://universalspartan.com/",
+    "expected_status": "Active",
+    "expected_confidence": 95,
+    "predicted_status": "Active",
+    "predicted_confidence": 95
+  },
+  {
+    "row_index": 271,
+    "name": "Princess Leahs Designs",
+    "website": "https://www.etsy.com/people/PrincessLeahDesigns",
+    "expected_status": "Uncertain",
+    "expected_confidence": 95,
+    "predicted_status": "Active",
+    "predicted_confidence": 95
+  },
+  {
+    "row_index": 94,
+    "name": "The Mobile Cigar Lounge",
+    "website": "https://themobilecigarlounge.com/product/GROE5FW3W45TM335V5UA7PFR",
+    "expected_status": "Active",
+    "expected_confidence": 95,
+    "predicted_status": "Active",
+    "predicted_confidence": 95
+  },
+  {
+    "row_index": 85,
+    "name": "Reflections of Service",
+    "website": "https://www.reflectionsofservice.com/",
+    "expected_status": "Uncertain",
+    "expected_confidence": 100,
+    "predicted_status": "Active",
+    "predicted_confidence": 100
+  },
+  {
+    "row_index": 349,
+    "name": "Devil Dog Brew",
+    "website": "https://www.devildogbrew.org/",
+    "expected_status": "Active",
+    "expected_confidence": 95,
+    "predicted_status": "Active",
+    "predicted_confidence": 95
+  },
+  {
+    "row_index": 562,
+    "name": "Back Office Administrations LLC",
+    "website": "https://www.backofficeadministrators.com/",
+    "expected_status": "Active",
+    "expected_confidence": 95,
+    "predicted_status": "Active",
+    "predicted_confidence": 95
+  },
+  {
+    "row_index": 223,
+    "name": "Assault Forward",
+    "website": "https://assaultforward.us/",
+    "expected_status": "Active",
+    "expected_confidence": 100,
+    "predicted_status": "Active",
+    "predicted_confidence": 100
+  },
+  {
+    "row_index": 344,
+    "name": "Black Ink Coffee",
+    "website": "https://blackinkcoffee.com/",
+    "expected_status": "Active",
+    "expected_confidence": 95,
+    "predicted_status": "Active",
+    "predicted_confidence": 95
+  },
+  {
+    "row_index": 228,
+    "name": "Blue Ribbon Buckle Co.",
+    "website": "https://www.blueribbonbuckleco.com",
+    "expected_status": "Active",
+    "expected_confidence": 100,
+    "predicted_status": "Active",
+    "predicted_confidence": 100
+  },
+  {
+    "row_index": 424,
+    "name": "JMCO Consulting",
+    "website": "http://www.jmcoconsulting.com/",
+    "expected_status": "Active",
+    "expected_confidence": 100,
+    "predicted_status": "Active",
+    "predicted_confidence": 100
+  },
+  {
+    "row_index": 292,
+    "name": "TJL Collection",
+    "website": "https://www.tjlcollection.com/",
+    "expected_status": "Active",
+    "expected_confidence": 100,
+    "predicted_status": "Active",
+    "predicted_confidence": 100
+  },
+  {
+    "row_index": 699,
+    "name": "Cornhole and More LLC",
+    "website": "https://www.gameonva.com/",
+    "expected_status": "Active",
+    "expected_confidence": 95,
+    "predicted_status": "Active",
+    "predicted_confidence": 95
+  },
+  {
+    "row_index": 484,
+    "name": "iFusion Concepts",
+    "website": "http://www.ifusionconcepts.com/",
+    "expected_status": "Active",
+    "expected_confidence": 97,
+    "predicted_status": "Active",
+    "predicted_confidence": 97
+  },
+  {
+    "row_index": 589,
+    "name": "Matt Webb Design",
+    "website": "https://MattWebb.shop",
+    "expected_status": "Active",
+    "expected_confidence": 100,
+    "predicted_status": "Active",
+    "predicted_confidence": 100
+  },
+  {
+    "row_index": 583,
+    "name": "Achieve New Heights, LLC",
+    "website": "https://achievenewheights.com/",
+    "expected_status": "Uncertain",
+    "expected_confidence": 75,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 75
+  },
+  {
+    "row_index": 87,
+    "name": "Saltwater & Sand",
+    "website": "https://saltwatersand.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 75,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 75
+  },
+  {
+    "row_index": 192,
+    "name": "365 Self-Defense",
+    "website": "https://365selfdefense.com",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 75,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 75
+  },
+  {
+    "row_index": 535,
+    "name": "Overton's Grading, LLC",
+    "website": "http://www.overtonsgrading.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 85,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 85
+  },
+  {
+    "row_index": 413,
+    "name": "Granted Advocacy Partners, Inc. (GAP, Inc.)",
+    "website": "https://www.standingap.com",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 85,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 85
+  },
+  {
+    "row_index": 95,
+    "name": "Travel Halo",
+    "website": "https://travelhalo.com",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 75,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 75
+  },
+  {
+    "row_index": 455,
+    "name": "SMB Coaching",
+    "website": "https://smbcoaching2.wixsite.com/mysite",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 75,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 75
+  },
+  {
+    "row_index": 375,
+    "name": "Chosun4u",
+    "website": "http://www.chosendreamhome.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 72,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 72
+  },
+  {
+    "row_index": 314,
+    "name": "A Guide to Improvised Weaponry",
+    "website": "http://www.terryschappert.com/book.html",
+    "expected_status": "Active",
+    "expected_confidence": 85,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 85
+  },
+  {
+    "row_index": 125,
+    "name": "Emotion On Walls",
+    "website": "https://www.emotiononwalls.org/",
+    "expected_status": "No Web Presence",
+    "expected_confidence": 75,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 75
+  },
+  {
+    "row_index": 268,
+    "name": "One Fire Fight",
+    "website": "https://www.onefirefight.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 75,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 75
+  },
+  {
+    "row_index": 161,
+    "name": "CHAT Nature's Skin & Hair Co LLC",
+    "website": "https://www.chatshco.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 78,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 78
+  },
+  {
+    "row_index": 320,
+    "name": "Coping with Sexual Assault/Military Sexual Trauma",
+    "website": "https://www.SugatiPublications.com",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 72,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 72
+  },
+  {
+    "row_index": 126,
+    "name": "Enchanted Rose Floral",
+    "website": "https://www.theenchantedrosefloralcompany.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 72,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 72
+  },
+  {
+    "row_index": 578,
+    "name": "Weekend Navigators",
+    "website": "https://weekendnavigators.net/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 75,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 75
+  },
+  {
+    "row_index": 18,
+    "name": "Deep Sea Salt Company",
+    "website": "https://www.deepseasaltco.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 78,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 78
+  },
+  {
+    "row_index": 410,
+    "name": "FORCE MULTIPLIER TALENT",
+    "website": "https://ForceMultiplierTalent.com",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 75,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 75
+  },
+  {
+    "row_index": 91,
+    "name": "Stars & Stripes Gifts LV",
+    "website": "https://spouse-ly.com/store/stars-stripes-gifts-lv/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 75,
+    "predicted_status": "Likely Closed",
+    "predicted_confidence": 75
+  },
+  {
+    "row_index": 685,
+    "name": "Basket and Beads Kenya",
+    "website": "https://basketsandbeadskenya.com/",
+    "expected_status": "Active",
+    "expected_confidence": 55,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 55
+  },
+  {
+    "row_index": 624,
+    "name": "Casa Los Juanes",
+    "website": "https://www.airbnb.com/rooms/36275724?source_impression_id=p3_1742239707_P33-lBPU2Q09hW_X",
+    "expected_status": "Uncertain",
+    "expected_confidence": 55,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 55
+  },
+  {
+    "row_index": 31,
+    "name": "King\u2019s Coffee, LLC",
+    "website": "https://www.kingscoffee.io",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 55,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 55
+  },
+  {
+    "row_index": 470,
+    "name": "TTG Properties",
+    "website": "https://alcornttg.wixsite.com/website",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 55,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 55
+  },
+  {
+    "row_index": 97,
+    "name": "Tripoli Gift Company",
+    "website": "https://www.tripoligiftcompany.com/gifts.html",
+    "expected_status": "Uncertain",
+    "expected_confidence": 50,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 50
+  },
+  {
+    "row_index": 388,
+    "name": "Business Served",
+    "website": "http://www.businessserved.com/",
+    "expected_status": "Uncertain",
+    "expected_confidence": 55,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 55
+  },
+  {
+    "row_index": 193,
+    "name": "Alpha Outpost",
+    "website": "https://www.alphaoutpost.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 65,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 65
+  },
+  {
+    "row_index": 163,
+    "name": "Dashfire Beards",
+    "website": "https://dashfirebeards.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 55,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 55
+  },
+  {
+    "row_index": 286,
+    "name": "Sword & Plough",
+    "website": "https://www.swordandplough.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 65,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 65
+  },
+  {
+    "row_index": 680,
+    "name": "Bundook",
+    "website": "https://www.milpackage.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 55,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 55
+  },
+  {
+    "row_index": 602,
+    "name": "Griggsgear.com",
+    "website": "https://Griggsgear.com",
+    "expected_status": "Uncertain",
+    "expected_confidence": 72,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 72
+  },
+  {
+    "row_index": 114,
+    "name": "Disgruntled Decks",
+    "website": "https://disgruntleddecks.com/",
+    "expected_status": "Active",
+    "expected_confidence": 50,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 50
+  },
+  {
+    "row_index": 451,
+    "name": "Secretariat Strategie LLC",
+    "website": "https://cirrusts.com/",
+    "expected_status": "Uncertain",
+    "expected_confidence": 75,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 75
+  },
+  {
+    "row_index": 177,
+    "name": "Peachy Keen Perfume",
+    "website": "https://www.peachykeenperfume.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 65,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 65
+  },
+  {
+    "row_index": 380,
+    "name": "A Simple Organizing & Moving Company, LLC",
+    "website": "https://Www.simpleoam.com",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 55,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 55
+  },
+  {
+    "row_index": 556,
+    "name": "Spicers Nicer Massage Therapy",
+    "website": "https://www.facebook.com/spicersnicermassagetherapy",
+    "expected_status": "Active",
+    "expected_confidence": 60,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 60
+  },
+  {
+    "row_index": 88,
+    "name": "SerenaTea,LLC",
+    "website": "https://serenateallc.com/",
+    "expected_status": "No Web Presence",
+    "expected_confidence": 75,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 75
+  },
+  {
+    "row_index": 176,
+    "name": "Norwood Natural's CBD",
+    "website": "https://www.norwoodnaturals.com",
+    "expected_status": "Uncertain",
+    "expected_confidence": 55,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 55
+  },
+  {
+    "row_index": 538,
+    "name": "Spectra Cargo & Logistics, LLC",
+    "website": "https://spectracargo.com/",
+    "expected_status": "Likely Closed",
+    "expected_confidence": 65,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 65
+  },
+  {
+    "row_index": 111,
+    "name": "CRSpices, ll",
+    "website": "https://www.etsy.com/shop/CRSpices",
+    "expected_status": "Uncertain",
+    "expected_confidence": 72,
+    "predicted_status": "Uncertain",
+    "predicted_confidence": 72
+  }
+]

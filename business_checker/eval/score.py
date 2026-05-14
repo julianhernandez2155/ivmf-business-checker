@@ -21,6 +21,7 @@ Iter 13 extensions:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import math
 import re
@@ -623,5 +624,125 @@ def main(argv: list[str] | None = None) -> None:
     print(f"Review queue size: {result['review_queue_size']}")
 
 
+# ---------------------------------------------------------------------------
+# Phase 0 ANALYTICS-04 adapter — standardized JSON eval contract.
+#
+# Wraps the existing CSV-based scorer in a JSON I/O contract consumed by
+# `scripts/eval-ci.sh` and `.github/workflows/eval-ci.yml`. The engine logic
+# above is preserved verbatim; this adapter only:
+#   1) Reads a gold-set JSON file (list of examples with expected_status +
+#      predicted_status fields).
+#   2) Computes overall accuracy + n_examples.
+#   3) Emits a routing_distribution over the 6-value RoutingLabel enum
+#      (D-00-12 measurement surface).
+#   4) Writes a single JSON file with the contract {accuracy, n_examples,
+#      routing_distribution, details}.
+#
+# `--dry-run` short-circuits any future live API path; in Phase 0 the gold
+# JSON already carries cached predictions so dry-run is functionally identical.
+# Phase 2 will replace the static `predicted_status` field with a live worker
+# call without changing the output contract.
+# ---------------------------------------------------------------------------
+
+
+def _score_from_gold_json(gold_path: Path, dry_run: bool = False) -> dict[str, Any]:
+    """Compute eval metrics from a gold-set JSON file.
+
+    Args:
+        gold_path: Path to a JSON list of gold examples. Each example must
+            contain `expected_status` and `predicted_status` strings; other
+            fields are passed through to `details` and used by the routing
+            stub mapper.
+        dry_run: When True, no external calls are attempted. In Phase 0 the
+            scorer is fully offline so this flag is informational; Phase 2
+            wiring will honor it for live API skipping.
+
+    Returns:
+        Dict with keys `accuracy` (float 0-1), `n_examples` (int), `details`
+        (list of the input examples). The caller is responsible for adding
+        the routing_distribution field.
+    """
+    gold_path = Path(gold_path)
+    if not gold_path.exists():
+        raise FileNotFoundError(f"Gold JSON not found: {gold_path}")
+    examples = json.loads(gold_path.read_text(encoding="utf-8"))
+    if not isinstance(examples, list):
+        raise ValueError(
+            f"Gold JSON root must be a list of examples, got {type(examples).__name__}"
+        )
+
+    n = len(examples)
+    if n == 0:
+        return {"accuracy": 0.0, "n_examples": 0, "details": []}
+
+    agree = 0
+    for ex in examples:
+        expected = str(ex.get("expected_status") or "").strip()
+        predicted = str(ex.get("predicted_status") or "").strip()
+        if expected and predicted and expected == predicted:
+            agree += 1
+    accuracy = agree / n
+
+    if dry_run:
+        logger.info("dry-run: scored %d examples offline", n)
+
+    return {"accuracy": accuracy, "n_examples": n, "details": examples}
+
+
+def _run_phase0_adapter(argv: list[str]) -> int:
+    """Phase 0 `--gold/--out` CLI mode.
+
+    Returns process exit code (0 on success).
+    """
+    parser = argparse.ArgumentParser(
+        prog="python -m business_checker.eval.score",
+        description="Phase 0 ANALYTICS-04 JSON adapter (gold-set → eval_result.json).",
+    )
+    parser.add_argument("--gold", required=True, type=Path)
+    parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Skip any live API calls; Phase 0 gold set is offline so this "
+             "is functionally a no-op today but reserved for Phase 2 wiring.",
+    )
+    args, _ = parser.parse_known_args(argv)
+
+    raw = _score_from_gold_json(args.gold, dry_run=args.dry_run)
+
+    # Lazy import to keep the existing CSV-based main path free of the
+    # routing_labels dependency.
+    from business_checker.eval.routing_labels import (  # noqa: WPS433 — intentional local import
+        empty_distribution,
+        stub_label_from_gold,
+    )
+
+    dist = empty_distribution()
+    for ex in raw.get("details", []):
+        dist[stub_label_from_gold(ex).value] += 1
+
+    out = {
+        "accuracy": float(raw["accuracy"]),
+        "n_examples": int(raw["n_examples"]),
+        "routing_distribution": dist,
+        "details": raw["details"],
+    }
+
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
+
+    summary = {
+        "accuracy": out["accuracy"],
+        "n_examples": out["n_examples"],
+        "routing_distribution": dist,
+    }
+    print(json.dumps(summary))
+    return 0
+
+
 if __name__ == "__main__":
+    # Route to Phase 0 JSON adapter when `--gold` is present; otherwise
+    # preserve the original CSV-based `--labeled` entry point.
+    if "--gold" in sys.argv[1:]:
+        sys.exit(_run_phase0_adapter(sys.argv[1:]))
     main(sys.argv[1:])

@@ -1,0 +1,14 @@
+{
+  "accuracy": 0.6896551724137931,
+  "n_examples": 58,
+  "routing_distribution": {
+    "Active - auto accepted": 19,
+    "Likely Closed - strong evidence": 15,
+    "Uncertain - manual review recommended": 13,
+    "Uncertain - outreach recommended": 0,
+    "Likely Closed - outreach recommended": 9,
+    "No contact available": 2
+  },
+  "recorded_at": "2026-05-14T00:00:00Z",
+  "note": "Phase 0 baseline — locked. Source: business_checker/eval/datasets/bmosg_v1_eval_sample.csv (58 of 60 rows after dropping 'Unable to Determine'). routing_distribution is informational in Phase 0; Phase 2 gates on drift. Update only after an explicit accuracy improvement, and only by re-running `python -m business_checker.eval.score --gold business_checker/eval/gold.json --out business_checker/eval/baseline.json` and committing the result with a justification."
+}
