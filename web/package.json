@@ -1,6 +1,6 @@
 {
   "name": "ivmf-web",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "scripts": {
     "test": "vitest run",
@@ -8,24 +8,27 @@
     "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
   "dependencies": {
+    "@supabase/ssr": "0.10.3",
+    "@supabase/supabase-js": "2.105.4",
+    "drizzle-orm": "0.45.2",
     "next": "16.2.6",
+    "postgres": "^3.4.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "@supabase/supabase-js": "2.105.4",
-    "@supabase/ssr": "0.10.3",
-    "zod": "4.4.3",
-    "drizzle-orm": "0.45.2",
-    "postgres": "^3.4.0"
+    "zod": "4.4.3"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.45.0",
-    "vitest": "^2.0.0",
-    "@vitest/ui": "^2.0.0",
-    "jsdom": "^25.0.0",
-    "typescript": "^5.6.0",
+    "@tailwindcss/postcss": "^4.3.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
-    "tailwindcss": "4.3.0"
+    "@vitest/ui": "^2.0.0",
+    "drizzle-kit": "^0.31.0",
+    "jsdom": "^25.0.0",
+    "tailwindcss": "4.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
   },
-  "engines": { "node": ">=22.0.0" }
+  "engines": {
+    "node": ">=22.0.0"
+  }
 }

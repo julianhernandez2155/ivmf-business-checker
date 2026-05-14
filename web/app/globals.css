@@ -1,0 +1,5 @@
+/* Phase 00 Plan 04: Tailwind 4 single-import per STACK.md (no PostCSS config required). */
+@import 'tailwindcss';
+
+:root { color-scheme: light dark; }
+body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; }

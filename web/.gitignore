@@ -1,3 +1,4 @@
+# Phase 00 Plan 04 additions: *.tsbuildinfo, pnpm-workspace.yaml scratch.
 # Next.js build artifacts
 .next/
 out/
@@ -21,6 +22,12 @@ drizzle/.scratch/
 .vscode/
 .idea/
 *.swp
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# pnpm auto-generated workspace scratch (allowBuilds prompt placeholder)
+pnpm-workspace.yaml
 
 # codegen artifacts are COMMITTED (not ignored) — drift gate compares against committed copy
 # (i.e. do NOT add db/schema.ts or db/types.ts here)
