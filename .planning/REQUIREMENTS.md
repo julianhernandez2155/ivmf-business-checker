@@ -12,18 +12,18 @@
 - [ ] **AUTH-01**: User can sign in with @syr.edu email via magic-link or password (Supabase Auth)
 - [ ] **AUTH-02**: Admin can extend the email domain allowlist via a config row (no code change required)
 - [ ] **AUTH-03**: System enforces two-role RBAC (admin / user) via Next.js middleware AND Postgres RLS, with role stored in `app_metadata`
-- [ ] **AUTH-04**: System writes an audit log entry (with before/after diff) for every admin write action (edit, merge, approval, key rotation)
+- [x] **AUTH-04**: System writes an audit log entry (with before/after diff) for every admin write action (edit, merge, approval, key rotation)
 
 ### CANON — Canonical Business Matching
 
 - [ ] **CANON-01**: System auto-merges an uploaded row to an existing canonical business when EIN matches exactly
 - [ ] **CANON-02**: System routes 2-of-N field-consensus matches (name, website_domain, owner, phone, address) to the admin review queue rather than auto-merging
-- [ ] **CANON-03**: System normalizes name (strip suffix, lowercase, punctuation), domain (root, no scheme/www/path), phone (E.164), and address (US standardized via usaddress) before matching
+- [x] **CANON-03**: System normalizes name (strip suffix, lowercase, punctuation), domain (root, no scheme/www/path), phone (E.164), and address (US standardized via usaddress) before matching
 - [ ] **CANON-04**: System maintains a blocklist of known-collision fields (registered-agent addresses, `*.wixsite.com`, answering-service phones) excluded from 2-of-N voting
-- [ ] **CANON-05**: System creates a new canonical business row when no match meets the threshold
-- [ ] **CANON-06**: System writes every verification to an append-only `verifications` table; `BEFORE UPDATE` / `BEFORE DELETE` triggers raise to enforce immutability
-- [ ] **CANON-07**: System enforces idempotency via UNIQUE keys on `(run_id, row_index, pass)` for verifications and on `(provider, request_hash)` for API calls
-- [ ] **CANON-08**: System records per-row provenance on every verification: which fields matched, match score, method used
+- [x] **CANON-05**: System creates a new canonical business row when no match meets the threshold
+- [x] **CANON-06**: System writes every verification to an append-only `verifications` table; `BEFORE UPDATE` / `BEFORE DELETE` triggers raise to enforce immutability
+- [x] **CANON-07**: System enforces idempotency via UNIQUE keys on `(run_id, row_index, pass)` for verifications and on `(provider, request_hash)` for API calls
+- [x] **CANON-08**: System records per-row provenance on every verification: which fields matched, match score, method used
 
 ### JOBS — Verification Runs
 
@@ -117,15 +117,15 @@ These shipped in v1.0 (desktop) and are preserved through the worker:
 | AUTH-01 | Phase 0 | Pending |
 | AUTH-02 | Phase 0 | Pending |
 | AUTH-03 | Phase 0 | Pending |
-| AUTH-04 | Phase 0 | Pending |
+| AUTH-04 | Phase 0 | Complete |
 | CANON-01 | Phase 1 | Pending |
 | CANON-02 | Phase 1 | Pending |
-| CANON-03 | Phase 0 | Pending |
+| CANON-03 | Phase 0 | Complete |
 | CANON-04 | Phase 1 | Pending |
-| CANON-05 | Phase 0 | Pending |
-| CANON-06 | Phase 0 | Pending |
-| CANON-07 | Phase 0 | Pending |
-| CANON-08 | Phase 0 | Pending |
+| CANON-05 | Phase 0 | Complete |
+| CANON-06 | Phase 0 | Complete |
+| CANON-07 | Phase 0 | Complete |
+| CANON-08 | Phase 0 | Complete |
 | JOBS-01 | Phase 1 | Pending |
 | JOBS-02 | Phase 2 | Pending |
 | JOBS-03 | Phase 2 | Pending |
@@ -169,4 +169,4 @@ These shipped in v1.0 (desktop) and are preserved through the worker:
 **Coverage:** 50/50 v1.1 requirements mapped to exactly one phase. No orphans.
 
 ---
-*Last updated: 2026-05-12 after roadmap creation*
+*Last updated: 2026-05-14 — Plan 00-02 closed CANON-03/05/06/07/08 + AUTH-04*
