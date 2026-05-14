@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-05-14T19:59:45.357Z"
+last_updated: "2026-05-14T20:19:13.716Z"
 last_activity: 2026-05-14
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # STATE.md
@@ -17,7 +17,7 @@ progress:
 ## Current Position
 
 Phase: 00 (Foundation) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-05-14
 
@@ -96,11 +96,15 @@ Before opening `/gsd:plan-phase 0`:
 - **Plan 00-04:** Allowlist edge cache TTL = 60s on success, 10s on error, fails CLOSED to `['syr.edu']`. Admin allowlist edits propagate within 60s — acceptable for AUTH-02 since admin edits are rare.
 - **Plan 00-04:** `drizzle-kit` pinned to `^0.31` (registry truth on 2026-05-14); STACK.md research baseline `^0.45` conflated drizzle-orm with drizzle-kit version lines.
 - **Plan 00-04:** Migration `0008_rbac_role_default.sql` apply to dev DB deferred (no `SUPABASE_DEV_DB_URL`); will land with the rest via `supabase db push` once `ivmf-checker-dev` is provisioned.
+- **Plan 00-05:** vt=300 enforced at the consumer call site via `dispatcher.VT_SECONDS` constant + `QueueClient.read_one(vt_seconds=300)` default; `grep -rn "vt=" worker/workers/` returns a single site at `pgmq_client.py:52` — proves D-00-09 not violated anywhere else.
+- **Plan 00-05:** `heartbeat_loop` uses `asyncio.wait_for(shutdown.wait(), timeout=30)` instead of `asyncio.sleep(30)` so SIGTERM exits in ms, not up to a full interval — same SIGTERM-drain contract that Phase 2 will inherit.
+- **Plan 00-05:** `QueueClient.__init__` tries `PGMQueue(dsn=...)` first, falls back to host/port/etc. kwargs on `TypeError` — survives tembo-pgmq-python 0.10 API surface drift between published patch builds without forcing a hard pin.
+- **Plan 00-05:** Railway deploy DEFERRED (same external block as Plan 00-02 dev DB); Procfile + railway.json shipped as the deployment manifest, live `railway up` waits on Railway project + dev Supabase provisioning. D-00-11 item 5 is code-complete; live demo gated on the same external block.
 
 ## Session Continuity
 
-Last completed: Plan 00-04 (Next.js 16 + Supabase magic-link auth + middleware allowlist + /me page — AUTH-01..03 closed; migration 0008 RBAC + role helper added; 8 vitest tests passing, 7 pytest tests skip cleanly pending dev DB).
-Next action: Execute Plan 00-05 (Railway worker + pgmq long-poll + heartbeat — D-00-09, D-00-11 item 5) per ROADMAP.md.
+Last completed: Plan 00-05 (Railway worker scaffold + pgmq long-poll vt=300 + heartbeat — D-00-09 + D-00-11 item 5 code-complete; live deploy deferred pending Railway/dev Supabase provisioning; 20/20 non-integration tests pass in 0.18s).
+Next action: Execute Plan 00-06 (eval-CI demo — D-00-11 item 3 + D-00-12 measurement surface) per ROADMAP.md.
 
 ---
-*Last updated: 2026-05-14 — Plan 00-04 completed (web auth shell + AUTH-01/02/03; migration apply + live magic-link demo deferred pending dev project provisioning)*
+*Last updated: 2026-05-14 — Plan 00-05 completed (Railway worker + dispatcher vt=300 + heartbeat 30s; live deploy deferred pending external provisioning)*
