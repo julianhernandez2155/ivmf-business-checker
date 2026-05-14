@@ -1,0 +1,26 @@
+# Next.js build artifacts
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Drizzle scratch output (we never commit anything under here; introspect-only)
+drizzle/.scratch/
+
+# Turbo / Vercel
+.turbo/
+.vercel/
+
+# Local env
+.env
+.env.local
+.env*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# codegen artifacts are COMMITTED (not ignored) — drift gate compares against committed copy
+# (i.e. do NOT add db/schema.ts or db/types.ts here)
