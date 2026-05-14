@@ -1,11 +1,25 @@
+---
+gsd_state_version: 1.0
+milestone: v1.1
+milestone_name: milestone
+status: executing
+last_updated: "2026-05-14T19:34:20.650Z"
+last_activity: 2026-05-14
+progress:
+  total_phases: 7
+  completed_phases: 0
+  total_plans: 6
+  completed_plans: 2
+---
+
 # STATE.md
 
 ## Current Position
 
-Phase: Phase 0 — Foundation
-Plan: — (awaiting `/gsd:plan-phase 0`)
-Status: Phase 0 context captured + amended for triage routing surface; ready to plan
-Last activity: 2026-05-13 — CONTEXT.md amended with D-00-12 (eval-CI emits routing-label distribution alongside decisive accuracy) so Phase 2 doesn't retrofit. Triage decision `.planning/2026-05-13-decision-triage-not-oracle.md` (commit a141951) added to canonical_refs.
+Phase: 00 (Foundation) — EXECUTING
+Plan: 3 of 6
+Status: Ready to execute
+Last activity: 2026-05-14
 
 ## Project Reference
 
@@ -13,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 See: .planning/ROADMAP.md (created 2026-05-12)
 
 **Core value:** Trustworthy bulk verification of veteran/minority-owned business lists with append-only audit history.
-**Current focus:** Milestone v1.1 — Web Platform Pivot, Phase 0 (Foundation)
+**Current focus:** Phase 00 — Foundation
 
 ## Progress
 
@@ -38,6 +52,7 @@ Milestone v1.1: 0/7 phases complete
 **Repo cleanup completed 2026-05-12:** 22 MB → 8.2 MB. Removed stale runs, .DS_Store, __pycache__, .pytest_cache, .superpowers, and a duplicate `Business Checker/.env` that contained a real Perplexity key. **Perplexity key rotation recommended.**
 
 **Architecture locked-in (see PROJECT.md Key Decisions):**
+
 - Next.js on Vercel (UI + auth + lightweight API)
 - Supabase (Postgres + Auth + Realtime + pgmq + Storage)
 - Railway (Python FastAPI worker pulling pgmq, runs existing check_business.py)
@@ -57,6 +72,7 @@ Before opening `/gsd:plan-phase 0`:
 - **IVMF subdomain + Resend DNS records** (SPF/DKIM/DMARC) — IT ticket (gates Phase 4 only). File at Phase 0 entry.
 - **Hosting residency confirmation** — Jim/IT (informational, non-blocking).
 - **Data retention policy for raw provider response bodies** — Jim (default: 30d to match v1.0).
+- **Dev Supabase project provisioning** — `ivmf-checker-dev` not yet provisioned; plan 00-02 migrations + tests written but not applied. Apply with `supabase db push` (or psql sequence) once SUPABASE_DEV_DB_URL is set. Manually enable pgmq extension in Supabase Dashboard before applying 0005. Then run `cd worker && SUPABASE_DEV_DB_URL=... pytest tests/ -x` to validate the 8 integration tests pass.
 
 ## Key Decisions Carried Forward
 
@@ -66,10 +82,16 @@ Before opening `/gsd:plan-phase 0`:
 - Eval-CI gate green by Phase 0 exit (even though aggregator doesn't land in worker until Phase 2).
 - Two pgmq queues: `q_verify` and `q_aggregator` (separate vt + payload).
 - `business_current_state` is trigger-maintained, NOT a materialized view.
+- **Plan 00-02:** verifications.run_id has ON DELETE CASCADE solely for test fixture cleanup; cleanup uses session_replication_role=replica to bypass BEFORE DELETE trigger.
+- **Plan 00-02:** Test fixtures insert deterministic UUID directly into auth.users via service-role (no Supabase admin REST dependency); `_role_guard` fixture catches the pooler-URL footgun.
+- **Plan 00-02:** worker_heartbeats lives in 0001 (not 0007) because 0002 RLS references it; 0007 is a placeholder no-op.
+- **Plan 00-02:** 0001 migration is non-idempotent by design; convert to `create table if not exists` deferred to Phase 0 polish PR.
+- **Plan 00-02:** normalize_name keeps bare "corp" suffix; only "corporation" is stripped (contract-driven).
 
 ## Session Continuity
 
-Next action: `/gsd:plan-phase 0` to decompose Foundation into executable plans.
+Last completed: Plan 00-02 (Supabase schema, RLS, append-only triggers, pgmq queues, normalize helpers).
+Next action: Execute Plan 00-03 (codegen drift gate) per ROADMAP.md.
 
 ---
-*Last updated: 2026-05-12 — roadmap created, Phase 0 current focus*
+*Last updated: 2026-05-14 — Plan 00-02 completed (migrations written; live DB application deferred pending dev project provisioning)*
