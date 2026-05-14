@@ -4,6 +4,41 @@
 
 [![CI](https://github.com/JulianHernandez2155/ivmf-business-checker/actions/workflows/ci.yml/badge.svg)](https://github.com/JulianHernandez2155/ivmf-business-checker/actions/workflows/ci.yml)
 
+## Project Status (as of 2026-05-14)
+
+This repo is mid-rebuild. **v1.0** is a working Python desktop tool that's processed ~20,000 records in production at IVMF. **v1.1** is an in-progress web platform pivot — Supabase + Next.js + a Railway worker that imports the v1.0 verification engine unchanged.
+
+### Milestone v1.1 — Web Platform Pivot
+
+| Phase | Scope | Status |
+|------:|:------|:-------|
+| 0 | Foundation: Supabase schema + RLS + magic-link auth + codegen drift CI + Railway worker scaffold + eval-CI gate | **In progress** — 5/6 plans complete; final plan paused at Resend ticket (human action) |
+| 1 | Cache-only verification (upload → canonical match → XLSX export, zero API calls) | Planned |
+| 2 | Live verification (real Perplexity + FireCrawl, multi-pass aggregator, pause/resume) | Planned |
+| 3 | Manual workflows (review queue, random-sample labeling) | Planned |
+| 4 | Email outreach (admin-approved, HMAC-tokenized form responses) — blocked on IVMF IT DNS | Planned |
+| 5 | Analytics & receipts (cache hit rate, spend, status distribution) | Planned |
+| 6 | Decommission desktop (regression vs BMSG + Alabama VOB baselines) | Planned |
+
+Full roadmap: [`.planning/ROADMAP.md`](.planning/ROADMAP.md). Phase-by-phase context, research, plans, and execution evidence live under [`.planning/phases/`](.planning/phases/).
+
+### Triage, not oracle
+
+A 2026-05-13 framing decision ([`.planning/2026-05-13-decision-triage-not-oracle.md`](.planning/2026-05-13-decision-triage-not-oracle.md)) reframed the system: the AI is a **triage engine** that routes verification work into one of 6 labels (auto-accepted / manual review / outreach recommended / etc.). Final status changes always come from a human or a business owner's response — never the AI alone.
+
+### What's in this repo right now
+
+- **`business_checker/`** — the v1.0 Python application (verification engine, Tkinter GUI, eval harness, gold dataset). This code is frozen and reused, not maintained, going forward.
+- **`web/`** — Next.js 16 app shell (sign-in, `/me`, middleware allowlist) — Phase 0 deliverable.
+- **`worker/`** — Railway-bound FastAPI worker (pgmq long-poll, heartbeat, db pool) — Phase 0 deliverable.
+- **`supabase/migrations/`** — Postgres schema + RLS + append-only triggers + pgmq queues — Phase 0 deliverable.
+- **`.github/workflows/`** — CI (eval regression gate, codegen drift gate).
+- **`.planning/`** — Get-Shit-Done methodology artifacts: roadmap, requirements, per-phase context/research/plans/evidence. Read these to see the decision trail.
+
+The v1.0 application (everything below) still runs as documented. v1.1 builds on top; it does not replace v1.0 in this repo until Phase 6.
+
+---
+
 ## What It Does
 
 Given a spreadsheet of businesses (name, city, state, optional website), the tool determines whether each business is still actively operating. For every record it produces a four-part verdict — **status** (Active / Likely Closed / Uncertain / No Web Presence), **confidence** (0–100), **one-sentence evidence**, and **source URLs** — written into a color-coded Excel report alongside the original data.

@@ -71,3 +71,6 @@ worker/.pytest_cache/
 supabase/.temp/
 .env
 .env.local
+
+# gsd-tools ephemeral state (chain flags, etc.)
+.planning/config.json
