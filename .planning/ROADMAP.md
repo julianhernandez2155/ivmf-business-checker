@@ -38,7 +38,7 @@ Outreach (Phase 4) is the only externally-blocked phase (IT must verify Resend D
 Plans:
 - [x] 00-01-wave0-test-scaffolding-PLAN.md — Wave 0 stub test files, fixtures, scripts, Makefile (no requirements; scaffolding)
 - [x] 00-02-supabase-schema-rls-PLAN.md — Wave 1 schema + RLS + append-only triggers + pgmq queues + normalize helpers (CANON-03, CANON-05, CANON-06, CANON-07, CANON-08, AUTH-04)
-- [ ] 00-03-codegen-drift-gate-PLAN.md — Wave 2 Drizzle introspect + Pydantic codegen + GitHub Actions drift gate (no new reqs; supports P4 defense)
+- [x] 00-03-codegen-drift-gate-PLAN.md — Wave 2 Drizzle introspect + Pydantic codegen + GitHub Actions drift gate (no new reqs; supports P4 defense; live drizzle-kit pull deferred until dev DB)
 - [ ] 00-04-web-auth-shell-PLAN.md — Wave 3 Next.js 16 + magic-link auth + middleware allowlist + /me page (AUTH-01, AUTH-02, AUTH-03)
 - [ ] 00-05-worker-railway-pgmq-PLAN.md — Wave 4 FastAPI worker scaffold + heartbeat + pgmq long-poll (D-00-09, D-00-11 item 5; no new reqs)
 - [ ] 00-06-eval-ci-demo-PLAN.md — Wave 5 eval-CI regression gate + Resend DNS ticket + Phase 0 exit demo (ANALYTICS-04)

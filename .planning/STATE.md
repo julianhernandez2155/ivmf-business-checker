@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: executing
-last_updated: "2026-05-14T19:34:20.650Z"
+last_updated: "2026-05-14T19:44:42.889Z"
 last_activity: 2026-05-14
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 6
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # STATE.md
@@ -17,7 +17,7 @@ progress:
 ## Current Position
 
 Phase: 00 (Foundation) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-05-14
 
@@ -87,11 +87,15 @@ Before opening `/gsd:plan-phase 0`:
 - **Plan 00-02:** worker_heartbeats lives in 0001 (not 0007) because 0002 RLS references it; 0007 is a placeholder no-op.
 - **Plan 00-02:** 0001 migration is non-idempotent by design; convert to `create table if not exists` deferred to Phase 0 polish PR.
 - **Plan 00-02:** normalize_name keeps bare "corp" suffix; only "corporation" is stripped (contract-driven).
+- **Plan 00-03:** Drizzle schema.ts + Pydantic models.py baselines hand-derived from `0001_init_schema.sql` (dev DB not provisioned); first live `bash scripts/check-drift.sh` either confirms zero-diff or produces a one-time "regenerate baseline" PR.
+- **Plan 00-03:** Replaced v1.0 `.github/workflows/ci.yml` (matrix on business_checker) with v1.1 three-job structure (worker-tests, web-tests, worker-integration); v1.0 tests still run inside worker-tests with soft-warn so pre-existing failures don't block.
+- **Plan 00-03:** `codegen-drift.yml` runs the D-00-03 hard guard (non-empty `web/drizzle/migrations/` → exit 1) BEFORE any other step, so the gate fires even if other CI steps would have errored.
+- **Plan 00-03:** `worker-integration` CI job is gated on `secrets.SUPABASE_DEV_DB_URL != ''` so PRs from fork/no-secret contexts skip cleanly; branch protection should require `worker-tests` + `web-tests` + `codegen-drift`, NOT `worker-integration`.
 
 ## Session Continuity
 
-Last completed: Plan 00-02 (Supabase schema, RLS, append-only triggers, pgmq queues, normalize helpers).
-Next action: Execute Plan 00-03 (codegen drift gate) per ROADMAP.md.
+Last completed: Plan 00-03 (codegen drift gate — Drizzle config, schema.ts + models.py baselines, codegen-drift + ci workflows, EVIDENCE.md).
+Next action: Execute Plan 00-04 (Next.js 16 + magic-link auth + middleware allowlist + /me page — AUTH-01..03) per ROADMAP.md.
 
 ---
-*Last updated: 2026-05-14 — Plan 00-02 completed (migrations written; live DB application deferred pending dev project provisioning)*
+*Last updated: 2026-05-14 — Plan 00-03 completed (drift gate wired; live drizzle-kit pull / datamodel-codegen deferred pending dev project provisioning)*
