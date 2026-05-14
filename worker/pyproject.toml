@@ -21,6 +21,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]   # makes `workers` package importable from tests/
 addopts = "-x -ra --strict-markers"
 markers = [
   "integration: requires SUPABASE_DEV_DB_URL",
