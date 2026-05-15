@@ -19,7 +19,7 @@ progress:
 Phase: 00 (Foundation) — COMPLETE (with 5 deferred live-demo captures pending external provisioning)
 Plan: 6 of 6 complete
 Status: Ready for Phase 1 planning
-Last activity: 2026-05-15
+Last activity: 2026-05-15 (Phase 0 verified + finalized)
 
 ## Project Reference
 
@@ -74,6 +74,7 @@ Before opening `/gsd:plan-phase 0`:
 - **Data retention policy for raw provider response bodies** — Jim (default: 30d to match v1.0).
 - **Dev Supabase project provisioning** — `ivmf-checker-dev` not yet provisioned. Blocks D-00-11 live-demo captures for items 1 (magic-link walkthrough), 2 (codegen-drift PR), 4 (`phase0-demo.sh` append-only assertion), 5 (worker heartbeat row). All four items are code-complete (see 00-EVIDENCE.md for the commit hashes / integration tests proving each gate); only the live demo capture awaits this provisioning. Apply with `supabase db push` (or psql sequence) once SUPABASE_DEV_DB_URL is set. Manually enable pgmq extension in Supabase Dashboard before applying 0005. Then run `cd worker && SUPABASE_DEV_DB_URL=... pytest tests/ -x` to validate the 8 integration tests pass.
 - **Railway project provisioning** — blocks D-00-11 item 5 live demo. Procfile + railway.json shipped; `railway up` deferred until the Railway project is created.
+- **D-00-10 upload-parse function** — CONTEXT.md D-00-10 promised the column-allowlist parse function + unit tests against the two reference Run input files in Phase 0. Only the `column_allowlist` config-seed row shipped; the parse function itself was silently dropped. **Folded into Phase 1 upload plan** (JOBS-01 already owns the upload flow). When `/gsd:plan-phase 1` runs, the planner must include the parse function + reference-file unit tests as a Phase 1 task. No new Phase 0 work; documented here so Phase 1 picks it up.
 
 ## Key Decisions Carried Forward
 

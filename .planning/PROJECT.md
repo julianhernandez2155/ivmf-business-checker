@@ -30,16 +30,16 @@ An AI-assisted business verification tool used by the Institute for Veterans and
 
 <!-- Current scope. Building toward these (Milestone v1.1). -->
 
-- [ ] Web platform on Supabase + Next.js + Railway Python worker
+- [~] Web platform on Supabase + Next.js + Railway Python worker (Phase 0 foundation complete 2026-05-15; live demos pending dev project provisioning)
 - [ ] Shared verification database (cache layer across all uploads and users)
-- [ ] Admin/user auth with two-role RBAC
+- [x] Admin/user auth with two-role RBAC (AUTH-01/02/03 validated in Phase 0 — magic-link + @syr.edu allowlist + RBAC via app_metadata)
 - [ ] Admin-managed Perplexity/FireCrawl API keys with monthly budget caps
-- [ ] Canonical business matching (EIN auto-merge or 2-of-N field consensus)
-- [ ] Append-only verifications ledger with idempotency keys
+- [~] Canonical business matching (EIN auto-merge or 2-of-N field consensus) (CANON-03 normalize helpers validated in Phase 0; matching engine itself is Phase 1)
+- [~] Append-only verifications ledger with idempotency keys (CANON-05/06/07/08 validated in Phase 0 — schema, BEFORE UPDATE/DELETE triggers, UNIQUE keys, per-row provenance all live)
 - [ ] Durable background jobs that survive browser close / crash / credit exhaustion
 - [ ] Manual random-sample labeling UI
 - [ ] Email outreach via Resend (admin-approved, tokenized form responses)
-- [ ] Analytics dashboard
+- [ ] Analytics dashboard (ANALYTICS-04 eval-CI gate validated in Phase 0; user-facing dashboard is Phase 5)
 - [ ] CSV/XLSX export with appended AI columns (preserved from desktop)
 - [ ] Run-completion email receipts
 
@@ -141,4 +141,4 @@ This document evolves at phase transitions and milestone boundaries.
 - Run-completion email receipts
 
 ---
-*Last updated: 2026-05-12 after milestone v1.1 initialization*
+*Last updated: 2026-05-15 after Phase 0 (Foundation) completion. Phase 0 validated AUTH-01..04, CANON-03, CANON-05..08, ANALYTICS-04 (10 of 50 v1.1 requirements); 5 D-00-11 live demo captures deferred pending dev Supabase + Railway + IVMF subdomain provisioning (all 5 are code-complete — see `.planning/phases/00-foundation/00-EVIDENCE.md`). Next: `/gsd:plan-phase 1` (D-00-10 upload-parse function + tests folded into Phase 1 per STATE.md).*
