@@ -74,3 +74,6 @@ supabase/.temp/
 
 # gsd-tools ephemeral state (chain flags, etc.)
 .planning/config.json
+
+# Eval CI ephemeral output (regenerated each run; baseline.json is the canonical artifact)
+eval_result.json
