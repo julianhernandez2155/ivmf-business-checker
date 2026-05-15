@@ -2,24 +2,24 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: executing
-last_updated: "2026-05-14T20:19:13.716Z"
-last_activity: 2026-05-14
+status: verifying
+last_updated: "2026-05-15T19:55:58.943Z"
+last_activity: 2026-05-15
 progress:
   total_phases: 7
-  completed_phases: 1
-  total_plans: 6
-  completed_plans: 6
+  completed_phases: 0
+  total_plans: 9
+  completed_plans: 8
 ---
 
 # STATE.md
 
 ## Current Position
 
-Phase: 00 (Foundation) — COMPLETE (with 5 deferred live-demo captures pending external provisioning)
-Plan: 6 of 6 complete
-Status: Ready for Phase 1 planning
-Last activity: 2026-05-15 (Phase 0 verified + finalized)
+Phase: 00 (Foundation) — Gap-closure cycle in progress (8 of 9 plans complete; Plan 00-07 + 00-08 shipped, Plan 00-09 next)
+Plan: 8 of 9 complete (00-01..00-06 + 00-07 + 00-08)
+Status: Gap closure in progress — Plan 00-09 (GAP-3 + GAP-4) is the final plan
+Last activity: 2026-05-15
 
 ## Project Reference
 
@@ -106,6 +106,14 @@ Before opening `/gsd:plan-phase 0`:
 - **Plan 00-06:** D-00-12 routing-label measurement surface live: `business_checker/eval/routing_labels.py` exports the 6-value enum; `business_checker/eval/score.py` emits `routing_distribution` in every run (informational in Phase 0; Phase 2 gates on drift).
 - **Plan 00-06:** Frozen baseline at `business_checker/eval/baseline.json` — accuracy=0.6897, n_examples=58 (≥20 Pitfall P8 floor). routing_distribution sums to 58 (sanity-check passed).
 - **Plan 00-06:** Resend DNS ticket DEFERRED until Phase 4 entry (IVMF subdomain not yet provisioned; Resend sandbox + Julian's gmail covers Phase 0–3 testing safely).
+- **Plan 00-07:** GAP-1 (Codex peer review) closed via migration 0009 — `auth.current_role_claim()` now reads `app_metadata.role` FIRST; the broken `auth.jwt() ->> 'role'` (Postgres reserved claim) fallback is removed entirely; `user_role` added as non-reserved JWT escape hatch for tests / non-standard JWTs.
+- **Plan 00-07:** GAP-2 (Codex peer review) closed via migration 0009 — `auth.is_allowed_domain(auth.email())` predicate added to runs_select_own, app_config_read (authenticated only — anon retains read for middleware bootstrap), app_config_admin_all, audit_log_admin_read, worker_heartbeats_admin_read. Defense-in-depth contract (D-00-05) is now true at BOTH layers.
+- **Plan 00-07:** Admin RLS policies ALSO gated on `is_allowed_domain` — closes the role-flip-to-non-allowlisted-user escalation path. Tables without existing user-facing policies (run_rows, verifications, api_calls, businesses, api_keys, budget_ledger, outreach_tickets) are NOT patched here; Phase 1 must include the allowlist predicate when adding their user-facing policies.
+- **Plan 00-07:** 6 new behavioral regression tests added (3 per test file) using `SET LOCAL request.jwt.claims` for JWT impersonation; all 12 tests across both files skip cleanly without `SUPABASE_DEV_DB_URL`. Live validation gated on the same dev-DB provisioning block as the rest of Phase 0.
+- **Plan 00-08 (GAP-5 closure):** review_queue table uses CHECK-constraint enums (not Postgres ENUM TYPE) for kind and status — easier to ALTER, matches 0001 convention on runs.status. Added chk_review_queue_resolution_shape so open rows have null resolution metadata and non-open rows have resolved_at set.
+- **Plan 00-08:** review_queue admin RLS uses defense-in-depth (auth.current_role_claim()='admin' AND auth.is_allowed_domain(auth.email())) mirroring the GAP-2 fix shape from Plan 00-07's 0009 migration. Partial index on (status, kind) WHERE status='open' keeps the Phase 3 review-queue UI hot path lean as resolved rows accumulate.
+- **Plan 00-08:** Drizzle (web/db/schema.ts) and Pydantic (worker/workers/lib/models.py) baselines hand-extended with review_queue / ReviewQueue (same deferred-live-introspection pattern as Plan 00-03). FK on created_by/resolved_by → auth.users declared only at the migration layer; Drizzle baseline leaves it as plain uuid (no cross-schema introspection; matches existing runs.user_id pattern).
+- **Plan 00-08:** GAP-5 from Codex peer review (.planning/phases/00-foundation/00-VERIFICATION.md) CLOSED. Phase 1's first task is no longer a schema migration — cache-only verification can start directly on canonical matching. Live integration test execution (6 tests in worker/tests/test_review_queue.py) awaits SUPABASE_DEV_DB_URL provisioning along with the rest of the Phase 0 integration suite.
 
 ## Session Continuity
 
