@@ -67,7 +67,7 @@
 - [ ] **ANALYTICS-01**: Admin dashboard shows cache hit rate over time (per-run and rolling)
 - [ ] **ANALYTICS-02**: Admin dashboard shows monthly $ spent vs cap per API key, with daily breakdown
 - [ ] **ANALYTICS-03**: Admin dashboard shows status distribution per run (active / likely_closed / closed / uncertain / errored)
-- [ ] **ANALYTICS-04**: System runs the eval harness against the labeled gold set on every worker deploy in CI; deploy is blocked if accuracy drops below the prior baseline
+- [x] **ANALYTICS-04**: System runs the eval harness against the labeled gold set on every worker deploy in CI; deploy is blocked if accuracy drops below the prior baseline _(Phase 0, Plan 00-06: `.github/workflows/eval-ci.yml` + `scripts/eval-ci.sh` + frozen `business_checker/eval/baseline.json`; local end-to-end verified 2026-05-15)_
 - [ ] **ANALYTICS-05**: Run history shows a reupload dedupe widget: "Uploaded N rows. K cache hits ($0 cost). M API calls ($X spent). P new businesses added."
 
 ### EXPORT — Output & Receipts
@@ -157,7 +157,7 @@ These shipped in v1.0 (desktop) and are preserved through the worker:
 | ANALYTICS-01 | Phase 5 | Pending |
 | ANALYTICS-02 | Phase 5 | Pending |
 | ANALYTICS-03 | Phase 5 | Pending |
-| ANALYTICS-04 | Phase 0 | Pending |
+| ANALYTICS-04 | Phase 0 | Complete (2026-05-15, Plan 00-06) |
 | ANALYTICS-05 | Phase 1 | Pending |
 | EXPORT-01 | Phase 1 | Pending |
 | EXPORT-02 | Phase 1 | Pending |
