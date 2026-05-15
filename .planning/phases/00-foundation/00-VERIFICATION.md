@@ -1,9 +1,9 @@
 ---
 phase: 00-foundation
 verified: 2026-05-15T00:00:00Z
-status: human_needed
-score: 10/10 requirement IDs accounted for; structural goal met; 5 live captures await provisioning
-re_verification: null
+status: gaps_found
+score: 10/10 requirement IDs accounted for; 5 live captures await provisioning; 5 gaps found in Codex peer review (2026-05-15) — gap closure pending
+re_verification: 2026-05-15 (Codex peer review added 5 implementation gaps)
 orchestrator_reviewed: 2026-05-15
 human_verification:
   - test: "Magic-link login round-trip (@syr.edu admitted, @gmail.com blocked at middleware)"
@@ -180,6 +180,67 @@ See `human_verification` block in frontmatter. Summary: Once `SUPABASE_DEV_DB_UR
 
 ---
 
+## Codex Peer Review Gaps (2026-05-15)
+
+After initial verification, Codex performed a peer review and found 5 implementation gaps that require closure before Phase 1 starts. All five accepted by Julian after review (see chat decision log 2026-05-15). The pre-call claim pattern (Codex finding #3) and routing-label decomposition (Codex architecture note) are deferred to Phase 2 — recorded in PROJECT.md key decisions, not in this gap list.
+
+### GAP-1 (HIGH): admin RBAC helper ordering inverted
+
+**File:** `supabase/migrations/0008_rbac_role_default.sql:45`
+**Symptom:** `auth.current_role_claim()` reads `auth.jwt() ->> 'role'` FIRST, which in Supabase returns the Postgres role claim (`authenticated` / `anon` / `service_role`), never the custom `admin`. Falls through to `app_metadata.role` ONLY if the JWT role is null. Result: `app_config_admin_all` policy never grants admin access — no user is functionally an admin.
+**Fix:** Reorder so `app_metadata.role` is read first, OR rename the JWT claim to a non-reserved key like `user_role`. One-line change.
+**Test:** A pytest case that sets `app_metadata.role='admin'` on a test user and asserts the user can SELECT from `app_config` via the policy.
+**Impact if shipped as-is:** Admin UI in later phases would silently fail to load any admin-restricted data.
+
+### GAP-2 (HIGH): domain allowlist not enforced by RLS policies
+
+**File:** `supabase/migrations/0002_rls_policies.sql` (multiple policies) + helper at `0006_app_config_seed.sql:auth.is_allowed_domain()`
+**Symptom:** The helper function `auth.is_allowed_domain(email)` exists but NO RLS policy actually calls it. Example: the `runs` SELECT policy checks `auth.uid() = user_id` only. The middleware DOES block non-allowlisted domains at the browser route layer, but a JWT-bearing client hitting Supabase REST directly bypasses the domain gate entirely.
+**Fix:** Add `AND auth.is_allowed_domain(auth.email())` (or equivalent JWT-email read) to every user-facing SELECT/INSERT/UPDATE policy in 0002. Confirm policies on: `runs`, `run_rows`, `verifications`, `businesses`, `business_current_state`, plus admin tables. Touches 0002 directly OR adds a 0009 patch migration.
+**Test:** A pytest case that creates a non-`@syr.edu` auth.users row, gives them a valid JWT, attempts `select * from runs`, and asserts zero rows visible.
+**Impact if shipped as-is:** Defense-in-depth claim in CONTEXT.md D-00-05 is structurally false at the data layer.
+
+### GAP-3 (MEDIUM): eval-CI dry-run skips baseline comparison
+
+**File:** `scripts/eval-ci.sh:24`
+**Symptom:** When `PERPLEXITY_API_KEY_EVAL` secret is absent (which is the default for fork PRs and any push without explicit env setup), the script exits 0 in dry-run mode WITHOUT loading `baseline.json` or comparing accuracy. The GitHub workflow gate is effectively informational rather than enforcing — exactly the failure mode the gate is supposed to prevent.
+**Fix:** Dry-run mode should still: (1) run the offline scorer against gold.json, (2) load baseline.json, (3) compare accuracy, (4) exit non-zero on regression. The "skip when secret absent" branch should never bypass the comparison. Only the external API call branch should require the secret.
+**Test:** A bash test that runs `EVAL_GOLD=... bash scripts/eval-ci.sh` with no `PERPLEXITY_API_KEY_EVAL` AND a tampered gold.json, and asserts exit code 1.
+**Impact if shipped as-is:** ANALYTICS-04 regression gate produces false negatives — bad PRs pass CI when the secret happens to be absent.
+
+### GAP-4 (MEDIUM): open-redirect shape in auth callback
+
+**File:** `web/app/api/auth/callback/route.ts:21`
+**Symptom:** The `next` query parameter is consumed unsanitized into `new URL(next, req.url)`. If `next` is an absolute URL (`next=https://evil.example.com/`), the `URL` constructor uses the absolute URL and ignores the base, redirecting offsite after a valid auth round-trip. Classic open-redirect.
+**Fix:** Reject any `next` that doesn't start with `/` followed by a non-slash character. Whitelist regex: `/^\/(?!\/)/`. On rejection, redirect to `/me` instead.
+**Test:** A vitest case that hits the callback with `next=https://evil.com/` and asserts the response Location header points to `/me` (or the project's own origin), not the attacker domain.
+**Impact if shipped as-is:** Low-severity phishing primitive — attackers can craft links that pass through legitimate auth and land on attacker-controlled pages.
+
+### GAP-5 (MEDIUM): review_queue table missing from schema
+
+**File:** `supabase/migrations/0001_init_schema.sql` (not present anywhere)
+**Symptom:** ROADMAP Phase 1 acceptance criterion 2 ("Rows hitting 2-of-N consensus ... are routed to the admin review queue") requires a `review_queue` table. None exists in 0001–0008. The codegen baselines (`web/db/schema.ts`, `worker/workers/lib/models.py`) also lack it.
+**Fix:** Add `supabase/migrations/0009_review_queue.sql` creating the table with appropriate columns (kind: enum('canonical_merge'|'uncertain'|'outreach_response'), payload: jsonb, created_by, created_at, resolved_at, resolved_by, resolution: jsonb, status: enum). Add corresponding RLS policy in 0002 amendment or 0009 itself. Regenerate codegen baselines (will require dev DB OR hand-extend the baselines as 00-03 did).
+**Test:** A pytest case that inserts a `review_queue` row with `kind='canonical_merge'` and asserts the audit_log_trigger fires.
+**Impact if shipped as-is:** Phase 1's first task becomes a schema migration, blocking the cache-only verification flow until it lands. Codex's call is correct — cheaper to land in Phase 0 gap closure because we regen codegen baselines once, not twice.
+
+### Out of Scope for This Gap Closure (already recorded elsewhere)
+
+- **Pre-call API claim pattern** (Codex finding #3 framing) → Phase 2 owns this. Recorded in PROJECT.md key decisions 2026-05-15.
+- **Routing-label decomposition** (Codex architecture note) → Phase 2 owns this. Recorded in PROJECT.md key decisions 2026-05-15.
+- **Codegen drift uses mutable dev DB as truth** (Codex finding #7) → Light fix deferred; full ephemeral-rebuild approach is Phase 1 or Phase 6 scope.
+- **D-00-10 upload-parse function** → Folded into Phase 1 upload plan per STATE.md Open Externally-Blocked Items.
+
+### Gap Closure Priority
+
+All 5 gaps land in one Phase 0 gap-closure cycle:
+1. GAP-1 + GAP-2 are HIGH (real security/correctness bugs); ship first.
+2. GAP-3 + GAP-4 are MEDIUM (gate hygiene); ship in same migration cycle.
+3. GAP-5 is MEDIUM (Phase 1 dependency); land BEFORE Phase 1 to avoid double codegen regen.
+
+---
+
 *Verified: 2026-05-15*
 *Verifier: Claude (gsd-verifier)*
 *Branch: phase-0-foundation (not yet merged to main)*
+*Re-verified: 2026-05-15 — Codex peer review added 5 gaps; gap closure pending*
