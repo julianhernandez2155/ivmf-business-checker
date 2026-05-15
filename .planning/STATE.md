@@ -7,19 +7,19 @@ last_updated: "2026-05-14T20:19:13.716Z"
 last_activity: 2026-05-14
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # STATE.md
 
 ## Current Position
 
-Phase: 00 (Foundation) — EXECUTING
-Plan: 6 of 6
-Status: Ready to execute
-Last activity: 2026-05-14
+Phase: 00 (Foundation) — COMPLETE (with 5 deferred live-demo captures pending external provisioning)
+Plan: 6 of 6 complete
+Status: Ready for Phase 1 planning
+Last activity: 2026-05-15
 
 ## Project Reference
 
@@ -27,14 +27,14 @@ See: .planning/PROJECT.md (updated 2026-05-12)
 See: .planning/ROADMAP.md (created 2026-05-12)
 
 **Core value:** Trustworthy bulk verification of veteran/minority-owned business lists with append-only audit history.
-**Current focus:** Phase 00 — Foundation
+**Current focus:** Phase 01 — Cache-Only Verification (next)
 
 ## Progress
 
-Milestone v1.1: 0/7 phases complete
+Milestone v1.1: 1/7 phases complete
 
-- [ ] Phase 0: Foundation ← **current**
-- [ ] Phase 1: Cache-Only Verification
+- [x] Phase 0: Foundation (complete 2026-05-15; 5 live-demo captures deferred pending dev Supabase + Railway provisioning — code-complete, see 00-EVIDENCE.md)
+- [ ] Phase 1: Cache-Only Verification ← **next**
 - [ ] Phase 2: Live Verification
 - [ ] Phase 3: Manual Workflows
 - [ ] Phase 4: Outreach (externally blocked by IT — Resend DNS)
@@ -69,10 +69,11 @@ Before opening `/gsd:plan-phase 0`:
 
 ## Open Externally-Blocked Items
 
-- **IVMF subdomain + Resend DNS records** (SPF/DKIM/DMARC) — IT ticket (gates Phase 4 only). File at Phase 0 entry.
+- **IVMF subdomain + Resend DNS records** (SPF/DKIM/DMARC) — **DEFERRED until Phase 4 entry.** IVMF IT has not yet provisioned the IVMF subdomain (e.g., `outreach.ivmf.syr.edu`); DNS records cannot be filed until that subdomain exists. Phase 0–3 use the Resend sandbox + `julianhernandez2155@gmail.com` as the only allowed recipient (built-in Resend safety prevents accidental sends to real businesses). Resend account exists; API key stored at `worker/.env:RESEND_API_KEY` (gitignored). File the DNS ticket at Phase 4 entry. See `.planning/phases/00-foundation/00-EVIDENCE.md` D-00-11 item 6 for full context.
 - **Hosting residency confirmation** — Jim/IT (informational, non-blocking).
 - **Data retention policy for raw provider response bodies** — Jim (default: 30d to match v1.0).
-- **Dev Supabase project provisioning** — `ivmf-checker-dev` not yet provisioned; plan 00-02 migrations + tests written but not applied. Apply with `supabase db push` (or psql sequence) once SUPABASE_DEV_DB_URL is set. Manually enable pgmq extension in Supabase Dashboard before applying 0005. Then run `cd worker && SUPABASE_DEV_DB_URL=... pytest tests/ -x` to validate the 8 integration tests pass.
+- **Dev Supabase project provisioning** — `ivmf-checker-dev` not yet provisioned. Blocks D-00-11 live-demo captures for items 1 (magic-link walkthrough), 2 (codegen-drift PR), 4 (`phase0-demo.sh` append-only assertion), 5 (worker heartbeat row). All four items are code-complete (see 00-EVIDENCE.md for the commit hashes / integration tests proving each gate); only the live demo capture awaits this provisioning. Apply with `supabase db push` (or psql sequence) once SUPABASE_DEV_DB_URL is set. Manually enable pgmq extension in Supabase Dashboard before applying 0005. Then run `cd worker && SUPABASE_DEV_DB_URL=... pytest tests/ -x` to validate the 8 integration tests pass.
+- **Railway project provisioning** — blocks D-00-11 item 5 live demo. Procfile + railway.json shipped; `railway up` deferred until the Railway project is created.
 
 ## Key Decisions Carried Forward
 
@@ -100,11 +101,15 @@ Before opening `/gsd:plan-phase 0`:
 - **Plan 00-05:** `heartbeat_loop` uses `asyncio.wait_for(shutdown.wait(), timeout=30)` instead of `asyncio.sleep(30)` so SIGTERM exits in ms, not up to a full interval — same SIGTERM-drain contract that Phase 2 will inherit.
 - **Plan 00-05:** `QueueClient.__init__` tries `PGMQueue(dsn=...)` first, falls back to host/port/etc. kwargs on `TypeError` — survives tembo-pgmq-python 0.10 API surface drift between published patch builds without forcing a hard pin.
 - **Plan 00-05:** Railway deploy DEFERRED (same external block as Plan 00-02 dev DB); Procfile + railway.json shipped as the deployment manifest, live `railway up` waits on Railway project + dev Supabase provisioning. D-00-11 item 5 is code-complete; live demo gated on the same external block.
+- **Plan 00-06:** Eval-regression gate (D-00-11 item 3) live-verified locally end-to-end (FAIL: delta -0.0172 → RESTORE: delta +0.0000) — same `scripts/eval-ci.sh` code path that GitHub Actions runs. PR-based demo skipped because the local run proves the gate fires identically; reopen at Phase 1 if a reviewer wants the GitHub check screenshot specifically.
+- **Plan 00-06:** D-00-12 routing-label measurement surface live: `business_checker/eval/routing_labels.py` exports the 6-value enum; `business_checker/eval/score.py` emits `routing_distribution` in every run (informational in Phase 0; Phase 2 gates on drift).
+- **Plan 00-06:** Frozen baseline at `business_checker/eval/baseline.json` — accuracy=0.6897, n_examples=58 (≥20 Pitfall P8 floor). routing_distribution sums to 58 (sanity-check passed).
+- **Plan 00-06:** Resend DNS ticket DEFERRED until Phase 4 entry (IVMF subdomain not yet provisioned; Resend sandbox + Julian's gmail covers Phase 0–3 testing safely).
 
 ## Session Continuity
 
-Last completed: Plan 00-05 (Railway worker scaffold + pgmq long-poll vt=300 + heartbeat — D-00-09 + D-00-11 item 5 code-complete; live deploy deferred pending Railway/dev Supabase provisioning; 20/20 non-integration tests pass in 0.18s).
-Next action: Execute Plan 00-06 (eval-CI demo — D-00-11 item 3 + D-00-12 measurement surface) per ROADMAP.md.
+Last completed: Plan 00-06 (eval-CI regression gate + D-00-12 routing-label surface + frozen baseline + local D-00-11 item 3 end-to-end demo). Phase 0 closed 2026-05-15 with 1 D-00-11 item live-verified and 5 deferred (4 awaiting dev Supabase + Railway provisioning, 1 awaiting IVMF subdomain provisioning) — all 5 are code-complete with commit hashes traced in `.planning/phases/00-foundation/00-EVIDENCE.md`.
+Phase 0 complete (with 4 dev-DB-dependent demo items + Resend DNS deferred); Next: `/gsd:plan-phase 1`.
 
 ---
-*Last updated: 2026-05-14 — Plan 00-05 completed (Railway worker + dispatcher vt=300 + heartbeat 30s; live deploy deferred pending external provisioning)*
+*Last updated: 2026-05-15 — Phase 0 complete; Plan 00-06 closed (eval-CI gate + D-00-12 surface; ANALYTICS-04 done; live captures for 5 of 6 D-00-11 items deferred pending external provisioning)*
