@@ -213,3 +213,25 @@ class WorkerHeartbeats(BaseModel):
     last_seen_at: datetime
     hostname: str | None = None
     version: str | None = None
+
+
+class ReviewQueue(BaseModel):
+    """Admin review queue (GAP-5 fix). Consumed by Phase 1 CANON-02 (2-of-N
+    consensus routing) and Phase 3 MANUAL-01 (unified review queue UI).
+
+    kind constrained to ('canonical_merge', 'uncertain', 'outreach_response').
+    status constrained to ('open', 'resolved', 'dismissed').
+    audit_log_trigger attached (AUTH-04 coverage extended to the queue).
+    """
+
+    model_config = ConfigDict(extra='forbid')
+
+    id: UUID
+    kind: str
+    payload: dict[str, Any]
+    status: str = 'open'
+    created_by: UUID | None = None
+    created_at: datetime
+    resolved_at: datetime | None = None
+    resolved_by: UUID | None = None
+    resolution: dict[str, Any] | None = None

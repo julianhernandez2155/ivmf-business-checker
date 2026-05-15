@@ -237,3 +237,33 @@ export const worker_heartbeats = pgTable('worker_heartbeats', {
   hostname: text('hostname'),
   version: text('version'),
 })
+
+// ─── review_queue (GAP-5 fix; consumed by Phase 1 CANON-02 + Phase 3 MANUAL-01) ──
+// Hand-derived baseline matching supabase/migrations/0010_review_queue.sql.
+// auth.users FK on created_by/resolved_by is declared at the migration level only
+// (Drizzle baselines do not introspect across schemas; same pattern as runs.user_id).
+export const review_queue = pgTable(
+  'review_queue',
+  {
+    id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+    kind: text('kind').notNull(),
+    payload: jsonb('payload').notNull(),
+    status: text('status').notNull().default('open'),
+    created_by: uuid('created_by'),
+    created_at: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+    resolved_at: timestamp('resolved_at', { withTimezone: true }),
+    resolved_by: uuid('resolved_by'),
+    resolution: jsonb('resolution'),
+  },
+  (t) => ({
+    ix_review_queue_status_kind: index('ix_review_queue_status_kind').on(
+      t.status,
+      t.kind,
+    ),
+    ix_review_queue_created_by: index('ix_review_queue_created_by').on(
+      t.created_by,
+    ),
+  }),
+)
