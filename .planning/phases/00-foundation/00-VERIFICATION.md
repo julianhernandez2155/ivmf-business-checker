@@ -1,9 +1,9 @@
 ---
 phase: 00-foundation
 verified: 2026-05-15T00:00:00Z
-status: gaps_found
-score: 10/10 requirement IDs accounted for; 5 live captures await provisioning; 5 gaps found in Codex peer review (2026-05-15) — gap closure pending
-re_verification: 2026-05-15 (Codex peer review added 5 implementation gaps)
+status: passed
+score: 10/10 requirement IDs accounted for; 5 live captures await provisioning; all 5 Codex peer-review gaps CLOSED (GAP-1+GAP-2 via Plan 00-07, GAP-5 via Plan 00-08, GAP-3+GAP-4 via Plan 00-09)
+re_verification: 2026-05-15 (all 5 Codex peer-review gaps closed; phase structurally complete)
 orchestrator_reviewed: 2026-05-15
 human_verification:
   - test: "Magic-link login round-trip (@syr.edu admitted, @gmail.com blocked at middleware)"
@@ -204,7 +204,9 @@ After initial verification, Codex performed a peer review and found 5 implementa
 **Test:** A pytest case that creates a non-`@syr.edu` auth.users row, gives them a valid JWT, attempts `select * from runs`, and asserts zero rows visible.
 **Impact if shipped as-is:** Defense-in-depth claim in CONTEXT.md D-00-05 is structurally false at the data layer.
 
-### GAP-3 (MEDIUM): eval-CI dry-run skips baseline comparison
+### GAP-3 (MEDIUM): eval-CI dry-run skips baseline comparison — CLOSED 2026-05-15 (Plan 00-09)
+
+**Closure:** `scripts/eval-ci.sh` refactored so the `n_examples >= 20` assertion AND baseline.json accuracy comparison run unconditionally; only the external-API call path is gated on `PERPLEXITY_API_KEY_EVAL`. Bare `python` replaced with `python3` everywhere. Regression test `scripts/tests/eval-ci-dry-run.sh` synthesizes a tampered gold.json with every `predicted_status` flipped to a wrong canonical label, runs eval-ci.sh WITHOUT the secret, and asserts exit code 1; then runs standard gold and asserts exit 0. Both sub-cases verified live (commit `fcf5c2c`). See `.planning/phases/00-foundation/00-09-gate-hygiene-fixes-SUMMARY.md`.
 
 **File:** `scripts/eval-ci.sh:24`
 **Symptom:** When `PERPLEXITY_API_KEY_EVAL` secret is absent (which is the default for fork PRs and any push without explicit env setup), the script exits 0 in dry-run mode WITHOUT loading `baseline.json` or comparing accuracy. The GitHub workflow gate is effectively informational rather than enforcing — exactly the failure mode the gate is supposed to prevent.
@@ -212,7 +214,9 @@ After initial verification, Codex performed a peer review and found 5 implementa
 **Test:** A bash test that runs `EVAL_GOLD=... bash scripts/eval-ci.sh` with no `PERPLEXITY_API_KEY_EVAL` AND a tampered gold.json, and asserts exit code 1.
 **Impact if shipped as-is:** ANALYTICS-04 regression gate produces false negatives — bad PRs pass CI when the secret happens to be absent.
 
-### GAP-4 (MEDIUM): open-redirect shape in auth callback
+### GAP-4 (MEDIUM): open-redirect shape in auth callback — CLOSED 2026-05-15 (Plan 00-09)
+
+**Closure:** `web/app/api/auth/callback/route.ts` now sanitizes the `next` query param via an exported `sanitizeNext()` helper + `SAFE_NEXT_PATTERN = /^\/[^/]/` regex constant. Pattern rejects absolute URLs, protocol-relative URLs, `javascript:`/`data:` schemes, bare `/`, null, and empty; legitimate `/admin`-style paths preserved. The regex was tightened from the originally-specified lookahead variant `/^\/(?!\/)/` (which trivially admits bare `/` at end-of-string) to a character class — caught by the new vitest case for bare `/`. Regression test `web/tests/auth-callback-sanitize.test.ts` has 14 cases covering every documented attack shape; all 14 pass live (commit `d471049`). See `.planning/phases/00-foundation/00-09-gate-hygiene-fixes-SUMMARY.md`.
 
 **File:** `web/app/api/auth/callback/route.ts:21`
 **Symptom:** The `next` query parameter is consumed unsanitized into `new URL(next, req.url)`. If `next` is an absolute URL (`next=https://evil.example.com/`), the `URL` constructor uses the absolute URL and ignores the base, redirecting offsite after a valid auth round-trip. Classic open-redirect.
@@ -242,9 +246,12 @@ All 5 gaps land in one Phase 0 gap-closure cycle:
 2. GAP-3 + GAP-4 are MEDIUM (gate hygiene); ship in same migration cycle.
 3. GAP-5 is MEDIUM (Phase 1 dependency); land BEFORE Phase 1 to avoid double codegen regen.
 
+<!-- Gap closure complete (2026-05-15): all 5 gaps closed via Plans 00-07 / 00-08 / 00-09. -->
+
 ---
 
 *Verified: 2026-05-15*
 *Verifier: Claude (gsd-verifier)*
 *Branch: phase-0-foundation (not yet merged to main)*
 *Re-verified: 2026-05-15 — Codex peer review added 5 gaps; gap closure pending*
+*Re-verified: 2026-05-15 — all 5 Codex peer-review gaps CLOSED (Plans 00-07 / 00-08 / 00-09); phase structurally complete. 5 of 6 D-00-11 demo items remain deferred-with-receipts pending external provisioning (dev Supabase / Railway / IVMF subdomain) — see `human_verification` block above.*

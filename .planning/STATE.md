@@ -2,24 +2,25 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: verifying
-last_updated: "2026-05-15T19:55:58.943Z"
+status: executing
+last_updated: "2026-05-15T20:06:34.739Z"
 last_activity: 2026-05-15
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # STATE.md
 
 ## Current Position
 
-Phase: 00 (Foundation) — Gap-closure cycle in progress (8 of 9 plans complete; Plan 00-07 + 00-08 shipped, Plan 00-09 next)
-Plan: 8 of 9 complete (00-01..00-06 + 00-07 + 00-08)
-Status: Gap closure in progress — Plan 00-09 (GAP-3 + GAP-4) is the final plan
+Phase: 00 (Foundation) — **COMPLETE** including gap closure (9 of 9 plans shipped; Plans 00-07 / 00-08 / 00-09 closed all 5 Codex peer-review gaps)
+Plan: 9 of 9 complete (00-01..00-06 + 00-07 + 00-08 + 00-09)
+Status: Phase 0 fully closed including gap closure — ready for Phase 1 planning
 Last activity: 2026-05-15
+Stopped At: Completed 00-09-gate-hygiene-fixes-PLAN.md
 
 ## Project Reference
 
@@ -114,11 +115,18 @@ Before opening `/gsd:plan-phase 0`:
 - **Plan 00-08:** review_queue admin RLS uses defense-in-depth (auth.current_role_claim()='admin' AND auth.is_allowed_domain(auth.email())) mirroring the GAP-2 fix shape from Plan 00-07's 0009 migration. Partial index on (status, kind) WHERE status='open' keeps the Phase 3 review-queue UI hot path lean as resolved rows accumulate.
 - **Plan 00-08:** Drizzle (web/db/schema.ts) and Pydantic (worker/workers/lib/models.py) baselines hand-extended with review_queue / ReviewQueue (same deferred-live-introspection pattern as Plan 00-03). FK on created_by/resolved_by → auth.users declared only at the migration layer; Drizzle baseline leaves it as plain uuid (no cross-schema introspection; matches existing runs.user_id pattern).
 - **Plan 00-08:** GAP-5 from Codex peer review (.planning/phases/00-foundation/00-VERIFICATION.md) CLOSED. Phase 1's first task is no longer a schema migration — cache-only verification can start directly on canonical matching. Live integration test execution (6 tests in worker/tests/test_review_queue.py) awaits SUPABASE_DEV_DB_URL provisioning along with the rest of the Phase 0 integration suite.
+- **Plan 00-09 (GAP-3 + GAP-4 closure):** `scripts/eval-ci.sh` refactored so the `n_examples >= 20` assertion + baseline.json accuracy comparison run unconditionally — only the external-API call path is gated on `PERPLEXITY_API_KEY_EVAL`. Bare `python` → `python3` everywhere (closes the macOS-local polish flag). Heredoc receives paths via env vars instead of shell interpolation. ANALYTICS-04 gate now enforces on every PR, not just PRs that happen to have the Perplexity secret.
+- **Plan 00-09:** `web/app/api/auth/callback/route.ts` sanitizes the `next` query param via an exported `sanitizeNext()` helper + `SAFE_NEXT_PATTERN = /^\/[^/]/` regex constant. Plan specified the lookahead variant `/^\/(?!\/)/` but that admits bare `/` at end-of-string; switched to the character-class variant which enforces the documented "/ followed by a non-slash CHAR" contract (caught by the live vitest case for bare `/`). 14 vitest cases cover every documented attack shape from VERIFICATION.md; all 14 pass live and the full web/ vitest suite is green at 22/22.
+- **Plan 00-09:** Two new regression tests added — `scripts/tests/eval-ci-dry-run.sh` (bash, idempotent, synthesizes tampered gold via python3 + mktemp) and `web/tests/auth-callback-sanitize.test.ts` (vitest, 14 cases). Both live-verified.
+- **Plan 00-09:** All 5 Codex peer-review gaps (GAP-1 + GAP-2 closed by 00-07; GAP-5 by 00-08; GAP-3 + GAP-4 by 00-09) are now CLOSED. Phase 0 structurally complete; 5 of 6 D-00-11 live-demo items remain deferred-with-receipts pending external provisioning (dev Supabase, Railway, IVMF subdomain — same upstream block as before, not a gap).
 
 ## Session Continuity
 
-Last completed: Plan 00-06 (eval-CI regression gate + D-00-12 routing-label surface + frozen baseline + local D-00-11 item 3 end-to-end demo). Phase 0 closed 2026-05-15 with 1 D-00-11 item live-verified and 5 deferred (4 awaiting dev Supabase + Railway provisioning, 1 awaiting IVMF subdomain provisioning) — all 5 are code-complete with commit hashes traced in `.planning/phases/00-foundation/00-EVIDENCE.md`.
-Phase 0 complete (with 4 dev-DB-dependent demo items + Resend DNS deferred); Next: `/gsd:plan-phase 1`.
+Last completed: Plan 00-09 (gate-hygiene fixes — GAP-3 eval-CI baseline-comparison unconditional + GAP-4 sanitizeNext helper). All 5 Codex peer-review gaps now CLOSED across Plans 00-07 / 00-08 / 00-09. Phase 0 structurally complete with 9 of 9 plans shipped. 5 of 6 D-00-11 live-demo items remain deferred-with-receipts pending external provisioning (dev Supabase / Railway / IVMF subdomain) — all 5 are code-complete; only the live capture awaits the upstream unblock. See `.planning/phases/00-foundation/00-EVIDENCE.md` + `00-VERIFICATION.md` (status now `passed`).
+
+Phase 0 fully closed including gap closure; Next: `/gsd:plan-phase 1`.
+
+**Follow-up note on D-00-10:** Folded into Phase 1 upload plan (recorded in Open Externally-Blocked Items above). When `/gsd:plan-phase 1` runs, the planner must include the column-allowlist parse function + reference-file unit tests as a Phase 1 task. No Phase 0 follow-up required.
 
 ---
-*Last updated: 2026-05-15 — Phase 0 complete; Plan 00-06 closed (eval-CI gate + D-00-12 surface; ANALYTICS-04 done; live captures for 5 of 6 D-00-11 items deferred pending external provisioning)*
+*Last updated: 2026-05-15 — Phase 0 fully closed including gap closure; Plans 00-07 / 00-08 / 00-09 closed all 5 Codex peer-review gaps; VERIFICATION.md status set to `passed`; 5 of 6 D-00-11 live demos remain deferred-with-receipts pending external provisioning (same upstream block as before).*
