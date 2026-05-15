@@ -184,7 +184,9 @@ See `human_verification` block in frontmatter. Summary: Once `SUPABASE_DEV_DB_UR
 
 After initial verification, Codex performed a peer review and found 5 implementation gaps that require closure before Phase 1 starts. All five accepted by Julian after review (see chat decision log 2026-05-15). The pre-call claim pattern (Codex finding #3) and routing-label decomposition (Codex architecture note) are deferred to Phase 2 — recorded in PROJECT.md key decisions, not in this gap list.
 
-### GAP-1 (HIGH): admin RBAC helper ordering inverted
+### GAP-1 (HIGH): admin RBAC helper ordering inverted — CLOSED 2026-05-15 (Plan 00-07)
+
+**Closure:** `supabase/migrations/0009_auth_fixes.sql` rewrites `auth.current_role_claim()` to read `app_metadata.role` FIRST. Reserved-`role` fallback removed; `user_role` added as non-reserved escape hatch. Regression test `worker/tests/test_rbac.py::test_current_role_claim_returns_admin_for_app_metadata_role` pins the new ordering. See `.planning/phases/00-foundation/00-07-rbac-allowlist-fixes-SUMMARY.md`.
 
 **File:** `supabase/migrations/0008_rbac_role_default.sql:45`
 **Symptom:** `auth.current_role_claim()` reads `auth.jwt() ->> 'role'` FIRST, which in Supabase returns the Postgres role claim (`authenticated` / `anon` / `service_role`), never the custom `admin`. Falls through to `app_metadata.role` ONLY if the JWT role is null. Result: `app_config_admin_all` policy never grants admin access — no user is functionally an admin.
@@ -192,7 +194,9 @@ After initial verification, Codex performed a peer review and found 5 implementa
 **Test:** A pytest case that sets `app_metadata.role='admin'` on a test user and asserts the user can SELECT from `app_config` via the policy.
 **Impact if shipped as-is:** Admin UI in later phases would silently fail to load any admin-restricted data.
 
-### GAP-2 (HIGH): domain allowlist not enforced by RLS policies
+### GAP-2 (HIGH): domain allowlist not enforced by RLS policies — CLOSED 2026-05-15 (Plan 00-07)
+
+**Closure:** `supabase/migrations/0009_auth_fixes.sql` adds `auth.is_allowed_domain(auth.email())` to runs_select_own, app_config_read (authenticated branch), app_config_admin_all, audit_log_admin_read, worker_heartbeats_admin_read. Regression tests in `worker/tests/test_rls_domain_allowlist.py` cover negative, positive, and AND-semantics cases. Admin policies ALSO gated on allowlist to close role-flip escalation. See `.planning/phases/00-foundation/00-07-rbac-allowlist-fixes-SUMMARY.md`.
 
 **File:** `supabase/migrations/0002_rls_policies.sql` (multiple policies) + helper at `0006_app_config_seed.sql:auth.is_allowed_domain()`
 **Symptom:** The helper function `auth.is_allowed_domain(email)` exists but NO RLS policy actually calls it. Example: the `runs` SELECT policy checks `auth.uid() = user_id` only. The middleware DOES block non-allowlisted domains at the browser route layer, but a JWT-bearing client hitting Supabase REST directly bypasses the domain gate entirely.
