@@ -3,7 +3,7 @@
 **Project:** IVMF Business Checker
 **Milestone:** v1.1 — Web Platform Pivot
 **Created:** 2026-05-12
-**Last progress update:** 2026-05-14 (Plan 00-04 complete — 4/6 Phase 0 plans shipped)
+**Last progress update:** 2026-05-15 (Plan 00-06 complete — Phase 0 closed: 6/6 plans shipped, 5 D-00-11 live captures deferred pending external provisioning)
 **Granularity:** Standard (7 phases — Phase 0 + 6 numbered phases)
 **Coverage:** 50/50 v1.1 requirements mapped
 
@@ -21,7 +21,7 @@ Outreach (Phase 4) is the only externally-blocked phase (IT must verify Resend D
 
 ## Phases
 
-- [ ] **Phase 0: Foundation** — Schema, RLS, auth, worker scaffold, pgmq, codegen + eval-CI gates green
+- [x] **Phase 0: Foundation** — Schema, RLS, auth, worker scaffold, pgmq, codegen + eval-CI gates green (complete 2026-05-15; 5 D-00-11 live captures deferred — code-complete per 00-EVIDENCE.md)
 - [ ] **Phase 1: Cache-Only Verification** — Upload → canonical match → cache hit OR "not yet verified" → XLSX/CSV export, zero API calls
 - [ ] **Phase 2: Live Verification** — Real Perplexity + FireCrawl calls; multi-pass aggregator → `business_current_state`; pause/resume on credit exhaustion
 - [ ] **Phase 3: Manual Workflows** — Unified review queue, random-sample labeling, admin edits as new verifications
@@ -42,7 +42,7 @@ Plans:
 - [x] 00-03-codegen-drift-gate-PLAN.md — Wave 2 Drizzle introspect + Pydantic codegen + GitHub Actions drift gate (no new reqs; supports P4 defense; live drizzle-kit pull deferred until dev DB)
 - [x] 00-04-web-auth-shell-PLAN.md — Wave 3 Next.js 16 + magic-link auth + middleware allowlist + /me page (AUTH-01, AUTH-02, AUTH-03)
 - [x] 00-05-worker-railway-pgmq-PLAN.md — Wave 4 FastAPI worker scaffold + heartbeat + pgmq long-poll (D-00-09, D-00-11 item 5; no new reqs)
-- [ ] 00-06-eval-ci-demo-PLAN.md — Wave 5 eval-CI regression gate + Resend DNS ticket + Phase 0 exit demo (ANALYTICS-04)
+- [x] 00-06-eval-ci-demo-PLAN.md — Wave 5 eval-CI regression gate + D-00-12 routing-label surface + frozen baseline + local D-00-11 item 3 demo (ANALYTICS-04 closed; Resend DNS ticket deferred to Phase 4 entry per evidence log)
 **Success Criteria** (what must be TRUE):
   1. User with @syr.edu email can sign in via magic-link or password; non-allowlisted domains are blocked at middleware AND RLS layers.
   2. Admin can extend the email domain allowlist by editing a config row with no code change.
@@ -154,4 +154,4 @@ All 50 v1.1 requirements mapped to exactly one phase:
 Coverage: 50/50 ✓ — no orphans, no duplicates.
 
 ---
-*Last updated: 2026-05-14 — Phase 0 in progress (2/6 plans complete)*
+*Last updated: 2026-05-15 — Phase 0 complete (6/6 plans shipped); 5 D-00-11 live captures deferred pending external provisioning. Next: `/gsd:plan-phase 1`.*
